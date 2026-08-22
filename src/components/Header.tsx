@@ -42,7 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="site-header" role="banner">
+    <>
+      <header className="site-header" role="banner">
       <div className="container header-inner">
         {/* Brand Logo & Lockup */}
         <a
@@ -131,8 +132,11 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
       </div>
+      </header>
 
-      {/* Mobile Menu Slideout */}
+      {/* Mobile Menu Slideout (rendered outside <header> — its backdrop-filter
+          would otherwise trap this fixed panel inside the header box and the
+          background would collapse, leaving links over page text) */}
       {mobileMenuOpen && (
         <div
           className="mobile-menu-panel"
@@ -142,8 +146,7 @@ export const Header: React.FC<HeaderProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(244, 242, 238, 0.98)',
-            backdropFilter: 'blur(16px)',
+            backgroundColor: '#F4F2EE',
             padding: '2.5rem 2rem',
             display: 'flex',
             flexDirection: 'column',
@@ -198,6 +201,6 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
       )}
-    </header>
+    </>
   );
 };
