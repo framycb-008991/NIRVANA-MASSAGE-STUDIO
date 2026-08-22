@@ -1,0 +1,1383 @@
+/* ==========================================================================
+   Nirvana Massage Studio — Core Design System & Tokens
+   ========================================================================== */
+
+:root {
+  /* Brand Color Tokens */
+  --sage: #A6A99C;
+  --sage-dark: #8C8F82;
+  --sage-light: #C8CCC0;
+  --sage-wash: rgba(166, 169, 156, 0.12);
+  --sage-surface: #DFE2D8;
+  
+  --taupe: #8A7A68;
+  --taupe-dark: #6E6152;
+  --taupe-light: #C9BEB0;
+  --taupe-wash: rgba(138, 122, 104, 0.1);
+  --taupe-border: rgba(138, 122, 104, 0.24);
+
+  --white: #FFFFFF;
+  --ink: #2E2C28;
+  --ink-light: #5A5650;
+  --ink-muted: #8C8880;
+  --mist: #F4F2EE;
+  --mist-darker: #EAE6DF;
+
+  /* Typography */
+  --font-serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  --font-sans: "Jost", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Elevation / Shadows (Soft, Low-Contrast) */
+  --shadow-subtle: 0 4px 20px rgba(46, 44, 40, 0.04);
+  --shadow-card: 0 10px 30px rgba(46, 44, 40, 0.06);
+  --shadow-hover: 0 14px 38px rgba(46, 44, 40, 0.09);
+
+  /* Layout & Radii */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-fast: all 0.2s ease-out;
+}
+
+/* ==========================================================================
+   CSS Reset & Base Rules
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+  background-color: var(--mist);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  line-height: 1.68;
+  color: var(--ink);
+  background-color: var(--mist);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+
+h1 {
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-weight: 300;
+}
+
+h2 {
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 300;
+}
+
+h3 {
+  font-size: clamp(1.4rem, 2.5vw, 2rem);
+}
+
+p {
+  margin-bottom: 1rem;
+  color: var(--ink-light);
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  transition: var(--transition-smooth);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Tracking / Utility classes */
+.tracking-wide {
+  letter-spacing: 0.14em;
+}
+
+.tracking-widest {
+  letter-spacing: 0.22em;
+}
+
+.text-uppercase {
+  text-transform: uppercase;
+}
+
+.label-caps {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--taupe);
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.container-narrow {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ==========================================================================
+   Buttons & UI Elements
+   ========================================================================== */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.8rem;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--radius-full);
+  transition: var(--transition-smooth);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background-color: var(--taupe);
+  color: var(--white);
+  box-shadow: 0 4px 14px rgba(138, 122, 104, 0.25);
+}
+
+.btn-primary:hover {
+  background-color: var(--taupe-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(138, 122, 104, 0.35);
+}
+
+.btn-primary:disabled {
+  background-color: var(--taupe-light);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.btn-outline {
+  border: 1px solid var(--taupe);
+  color: var(--taupe);
+  background-color: transparent;
+}
+
+.btn-outline:hover {
+  background-color: var(--taupe);
+  color: var(--white);
+}
+
+.btn-ghost {
+  color: var(--taupe);
+  background: transparent;
+  padding: 0.7rem 1.2rem;
+}
+
+.btn-ghost:hover {
+  background-color: var(--taupe-wash);
+}
+
+.btn-sage {
+  background-color: var(--sage);
+  color: var(--ink);
+}
+
+.btn-sage:hover {
+  background-color: var(--sage-dark);
+  color: var(--white);
+}
+
+/* Pill / Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.badge-sage {
+  background-color: var(--sage-wash);
+  color: var(--sage-dark);
+  border: 1px solid rgba(166, 169, 156, 0.4);
+}
+
+.badge-taupe {
+  background-color: var(--taupe-wash);
+  color: var(--taupe);
+  border: 1px solid rgba(138, 122, 104, 0.3);
+}
+
+/* ==========================================================================
+   Header & Nav
+   ========================================================================== */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba(244, 242, 238, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(201, 190, 176, 0.35);
+  transition: var(--transition-fast);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 80px;
+}
+
+.brand-logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.1;
+  white-space: nowrap;
+  display: block;
+}
+
+.brand-subtitle {
+  font-family: var(--font-sans);
+  font-size: 0.56rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--taupe);
+  margin-top: 2px;
+  white-space: nowrap;
+  display: block;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 1.5vw, 1.8rem);
+  list-style: none;
+}
+
+.nav-link {
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+  position: relative;
+  padding: 0.4rem 0;
+  white-space: nowrap;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--ink);
+}
+
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 1.5px;
+  background-color: var(--taupe);
+  border-radius: var(--radius-full);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+/* Language Switcher Pill */
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  background-color: rgba(201, 190, 176, 0.2);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  border-radius: var(--radius-full);
+  padding: 2px;
+}
+
+.lang-btn {
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ink-light);
+  transition: var(--transition-fast);
+}
+
+.lang-btn:hover {
+  color: var(--ink);
+}
+
+.lang-btn.active {
+  background-color: var(--taupe);
+  color: var(--white);
+  box-shadow: 0 2px 6px rgba(138, 122, 104, 0.2);
+}
+
+/* Mobile Nav Toggle */
+.mobile-nav-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  padding: 0.5rem;
+}
+
+/* ==========================================================================
+   Halftone Dot Circle Signature Mark
+   ========================================================================== */
+
+.halftone-sphere {
+  display: inline-block;
+  vertical-align: middle;
+  position: relative;
+}
+
+.watermark-circle {
+  position: absolute;
+  pointer-events: none;
+  opacity: 0.14;
+  z-index: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* ==========================================================================
+   Hero Section
+   ========================================================================== */
+
+.hero-section {
+  position: relative;
+  background: linear-gradient(180deg, var(--sage-wash) 0%, rgba(244, 242, 238, 0) 100%);
+  padding: 6rem 0 5rem;
+  overflow: hidden;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 3.5rem;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.hero-title {
+  font-size: clamp(2.6rem, 5.5vw, 4.4rem);
+  font-weight: 300;
+  line-height: 1.15;
+  margin: 1rem 0 1.5rem;
+  color: var(--ink);
+}
+
+.hero-subtitle {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--ink-light);
+  max-width: 540px;
+  margin-bottom: 2.5rem;
+}
+
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+}
+
+.hero-visual-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  background-color: var(--sage);
+  aspect-ratio: 4 / 4.8;
+}
+
+.hero-visual-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(0.95) brightness(1.02) saturate(0.9);
+  transition: transform 0.8s ease;
+}
+
+.hero-visual-card:hover img {
+  transform: scale(1.03);
+}
+
+.hero-card-badge {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  background-color: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+}
+
+/* ==========================================================================
+   Cards, Grid & Treatment Modules
+   ========================================================================== */
+
+.section-spacing {
+  padding: 6rem 0;
+  position: relative;
+}
+
+.section-heading-center {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto 3.5rem;
+}
+
+.section-heading-center h2 {
+  margin-top: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.treatments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.treatment-card {
+  background-color: var(--white);
+  border-radius: var(--radius-md);
+  padding: 2.2rem;
+  border: 1px solid rgba(201, 190, 176, 0.35);
+  box-shadow: var(--shadow-subtle);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: var(--transition-smooth);
+  position: relative;
+  overflow: hidden;
+}
+
+.treatment-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--taupe-light);
+}
+
+.treatment-card-header {
+  margin-bottom: 1.2rem;
+}
+
+.treatment-card-title {
+  font-size: 1.65rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
+.treatment-card-desc {
+  font-size: 0.94rem;
+  color: var(--ink-light);
+  line-height: 1.65;
+  margin-bottom: 1.5rem;
+}
+
+.treatment-durations-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.8rem;
+}
+
+.duration-tag {
+  background-color: var(--mist);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.duration-tag .tag-price {
+  font-weight: 500;
+  color: var(--taupe);
+}
+
+/* ==========================================================================
+   About the Therapist Module (DESIGN_SPECS.md §4a)
+   ========================================================================== */
+
+.therapist-module {
+  background-color: var(--white);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  box-shadow: var(--shadow-card);
+  padding: 3.5rem;
+  margin-top: 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.therapist-grid {
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 3.5rem;
+  align-items: center;
+}
+
+.therapist-photo-wrap {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  background-color: var(--sage);
+}
+
+.therapist-photo-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.88) contrast(0.96);
+}
+
+.therapist-heading {
+  font-size: 2.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.accent-underline {
+  width: 54px;
+  height: 2px;
+  background-color: var(--taupe);
+  margin-bottom: 1.5rem;
+}
+
+.therapist-name-line {
+  margin-bottom: 1.2rem;
+}
+
+.therapist-name {
+  font-family: var(--font-serif);
+  font-size: 1.5rem;
+  color: var(--ink);
+}
+
+.therapist-credentials {
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--taupe);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.therapist-travel-box {
+  background-color: var(--mist);
+  border-left: 3px solid var(--taupe);
+  padding: 1.2rem 1.4rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-top: 1.8rem;
+  font-size: 0.9rem;
+  color: var(--ink-light);
+}
+
+/* ==========================================================================
+   Booking Flow Componentry (DESIGN_SPECS.md §4)
+   ========================================================================== */
+
+.booking-flow-container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 5rem;
+}
+
+/* Step Indicator */
+.step-indicator-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.step-indicator {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.step-node {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sage-dark);
+  transition: var(--transition-fast);
+}
+
+.step-node.active {
+  color: var(--taupe);
+}
+
+.step-node.completed {
+  color: var(--ink);
+}
+
+.step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  background-color: var(--mist-darker);
+  color: var(--sage-dark);
+  border: 1.5px solid var(--sage-dark);
+  transition: var(--transition-smooth);
+}
+
+.step-node.active .step-circle {
+  background-color: var(--taupe);
+  color: var(--white);
+  border-color: var(--taupe);
+}
+
+.step-node.completed .step-circle {
+  background-color: var(--sage-dark);
+  color: var(--white);
+  border-color: var(--sage-dark);
+}
+
+.step-line {
+  width: 80px;
+  height: 2px;
+  background-color: rgba(201, 190, 176, 0.4);
+  transition: var(--transition-smooth);
+}
+
+.step-line.filled {
+  background-color: var(--taupe);
+}
+
+/* Step 1 Two-Column Layout */
+.booking-step1-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  background-color: var(--white);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+}
+
+/* Left Column (Sage Panel) */
+.booking-left-sage {
+  background-color: var(--sage);
+  padding: 2.5rem 2rem;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.practitioner-mini-badge {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1.8rem;
+  border-bottom: 1px solid rgba(46, 44, 40, 0.12);
+  margin-bottom: 1.8rem;
+}
+
+.practitioner-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+}
+
+.practitioner-mini-name {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.practitioner-mini-role {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-light);
+  margin-top: 2px;
+}
+
+/* Calendar Month Picker */
+.calendar-widget {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(6px);
+  border-radius: var(--radius-md);
+  padding: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.calendar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.calendar-month-title {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+
+.cal-nav-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ink);
+  transition: var(--transition-fast);
+}
+
+.cal-nav-btn:hover:not(:disabled) {
+  background: var(--white);
+}
+
+.cal-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink-light);
+  letter-spacing: 0.08em;
+  margin-bottom: 0.6rem;
+}
+
+.calendar-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-day-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  border-radius: 50%;
+  color: var(--ink);
+  transition: var(--transition-fast);
+  background: transparent;
+  position: relative;
+}
+
+.cal-day-cell:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.cal-day-cell.selected {
+  background-color: var(--white) !important;
+  color: var(--ink) !important;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.cal-day-cell:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.cal-day-cell.today:not(.selected)::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  width: 4px;
+  height: 4px;
+  background-color: var(--ink);
+  border-radius: 50%;
+}
+
+/* Right Column (White Panel) */
+.booking-right-white {
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.8rem;
+}
+
+/* Booking Type Toggle (In-Studio vs Private) */
+.booking-type-segmented {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background-color: var(--mist);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  gap: 4px;
+}
+
+.type-seg-btn {
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-full);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink-light);
+  letter-spacing: 0.06em;
+  transition: var(--transition-fast);
+}
+
+.type-seg-btn.active {
+  background-color: var(--white);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(46, 44, 40, 0.08);
+}
+
+/* Treatment Selector & Duration Pills */
+.treatment-select-wrap select,
+.custom-input,
+.custom-textarea {
+  width: 100%;
+  padding: 0.85rem 1.1rem;
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  color: var(--ink);
+  background-color: var(--mist);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: var(--transition-fast);
+}
+
+.custom-input:focus,
+.custom-textarea:focus,
+.treatment-select-wrap select:focus {
+  border-color: var(--taupe);
+  background-color: var(--white);
+  box-shadow: 0 0 0 3px var(--taupe-wash);
+}
+
+.duration-pills-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.duration-pill-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 0.65rem 0.9rem;
+  border-radius: var(--radius-full);
+  background-color: var(--mist);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  font-size: 0.82rem;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: var(--transition-fast);
+}
+
+.duration-pill-btn:hover {
+  border-color: var(--taupe);
+}
+
+.duration-pill-btn.active {
+  background-color: var(--taupe);
+  color: var(--white);
+  border-color: var(--taupe);
+  box-shadow: 0 3px 10px rgba(138, 122, 104, 0.25);
+}
+
+.duration-pill-btn.active .pill-price {
+  color: var(--mist);
+}
+
+.pill-price {
+  font-size: 0.74rem;
+  color: var(--taupe);
+  font-weight: 500;
+}
+
+/* Time Slots List */
+.slots-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  gap: 0.6rem;
+}
+
+.slot-btn {
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--mist);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  font-size: 0.92rem;
+  font-weight: 400;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.slot-btn:hover:not(:disabled) {
+  background-color: var(--taupe-wash);
+  border-color: var(--taupe);
+  color: var(--taupe);
+  transform: translateY(-1px);
+}
+
+.slot-btn.selected {
+  background-color: var(--taupe);
+  color: var(--white);
+  border-color: var(--taupe);
+  box-shadow: 0 3px 10px rgba(138, 122, 104, 0.25);
+}
+
+.slot-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+/* Step 2 — Your Information */
+.step2-card {
+  max-width: 680px;
+  margin: 0 auto;
+  background-color: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 3rem;
+  box-shadow: var(--shadow-card);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-banner {
+  background-color: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(201, 190, 176, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-details h4 {
+  font-size: 1.2rem;
+  margin-bottom: 2px;
+}
+
+.summary-meta {
+  font-size: 0.86rem;
+  color: var(--ink-light);
+}
+
+.edit-back-link {
+  font-size: 0.8rem;
+  color: var(--taupe);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.edit-back-link:hover {
+  color: var(--taupe-dark);
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1.2rem;
+}
+
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+
+.inline-error {
+  font-size: 0.74rem;
+  color: #B25E5E;
+  margin-top: 2px;
+}
+
+.deposit-notice-card {
+  background-color: var(--sage-wash);
+  border: 1px solid rgba(166, 169, 156, 0.4);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.4rem;
+  margin: 1.5rem 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.step2-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 2rem;
+  gap: 1rem;
+}
+
+/* Confirmation State */
+.confirmed-panel {
+  max-width: 720px;
+  margin: 0 auto;
+  background-color: var(--sage);
+  border-radius: var(--radius-lg);
+  padding: 4rem 3.5rem;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.confirmed-panel h2 {
+  font-size: 2.4rem;
+  margin: 1rem 0 0.8rem;
+}
+
+.confirmed-details-card {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border-radius: var(--radius-md);
+  padding: 1.8rem;
+  margin: 2rem 0;
+  text-align: left;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.calendar-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.intake-cta-card {
+  background-color: var(--white);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  margin-top: 2rem;
+  text-align: left;
+  box-shadow: var(--shadow-subtle);
+}
+
+/* ==========================================================================
+   Cookie Banner & Modal
+   ========================================================================== */
+
+.cookie-banner-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  max-width: 960px;
+  margin: 0 auto;
+  z-index: 999;
+  background-color: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius-md);
+  padding: 1.5rem 2rem;
+  box-shadow: 0 16px 40px rgba(46, 44, 40, 0.14);
+  border: 1px solid rgba(201, 190, 176, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.cookie-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(46, 44, 40, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.modal-card {
+  background-color: var(--white);
+  border-radius: var(--radius-lg);
+  max-width: 620px;
+  width: 100%;
+  padding: 2.5rem;
+  box-shadow: var(--shadow-card);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.site-footer {
+  background-color: var(--ink);
+  color: var(--mist);
+  padding: 5rem 0 2.5rem;
+  margin-top: auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 3rem;
+  margin-bottom: 4rem;
+  position: relative;
+  z-index: 1;
+}
+
+.footer-brand h3 {
+  color: var(--white);
+  letter-spacing: 0.24em;
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.footer-col h4 {
+  color: var(--taupe-light);
+  font-size: 0.82rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.footer-links a {
+  color: var(--mist-darker);
+  font-size: 0.88rem;
+  transition: var(--transition-fast);
+}
+
+.footer-links a:hover {
+  color: var(--white);
+}
+
+.footer-bottom {
+  border-top: 1px solid rgba(244, 242, 238, 0.12);
+  padding-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--taupe-light);
+}
+
+/* ==========================================================================
+   Responsive Adaptations
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  .therapist-grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .booking-step1-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .cookie-banner-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    display: none;
+  }
+
+  .mobile-nav-toggle {
+    display: block;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .therapist-module {
+    padding: 2rem 1.5rem;
+  }
+
+  .step2-card {
+    padding: 2rem 1.5rem;
+  }
+
+  .confirmed-panel {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+}
