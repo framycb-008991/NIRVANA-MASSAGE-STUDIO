@@ -38,6 +38,9 @@
   --radius-lg: 24px;
   --radius-full: 9999px;
 
+  /* Layout Metrics */
+  --header-h: 80px;
+
   /* Transitions */
   --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-fast: all 0.2s ease-out;
@@ -91,7 +94,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h1 {
-  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  font-size: clamp(2.2rem, 5vw, 4.2rem);
   font-weight: 300;
 }
 
@@ -131,6 +134,23 @@ img {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* Keyboard focus visibility */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--taupe);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Text overflow safety for long translations */
+h1, h2, h3, h4, .badge, .brand-lockup, td, th {
+  overflow-wrap: break-word;
 }
 
 /* Tracking / Utility classes */
@@ -200,6 +220,11 @@ img {
   background-color: var(--taupe-dark);
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(138, 122, 104, 0.35);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(138, 122, 104, 0.3);
 }
 
 .btn-primary:disabled {
@@ -285,7 +310,7 @@ img {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 80px;
+  height: var(--header-h);
 }
 
 .brand-logo-link {
@@ -525,7 +550,7 @@ img {
 
 .treatments-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
   gap: 2rem;
 }
 
@@ -1241,6 +1266,29 @@ img {
   padding: 1.5rem;
 }
 
+/* Notification drawer split layout (list | preview) */
+.notif-drawer-grid {
+  grid-template-columns: 240px 1fr;
+}
+
+/* Mobile slideout menu entrance */
+.mobile-menu-panel {
+  animation: menuSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  border-top: 1px solid rgba(201, 190, 176, 0.4);
+  box-shadow: 0 24px 48px rgba(46, 44, 40, 0.12);
+}
+
+@keyframes menuSlideIn {
+  from {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .modal-card {
   background-color: var(--white);
   border-radius: var(--radius-lg);
@@ -1326,6 +1374,10 @@ img {
     gap: 2.5rem;
   }
 
+  .hero-visual-card {
+    aspect-ratio: 4 / 3;
+  }
+
   .therapist-grid {
     grid-template-columns: 1fr;
     gap: 2rem;
@@ -1347,12 +1399,52 @@ img {
 }
 
 @media (max-width: 768px) {
+  :root {
+    --header-h: 64px;
+  }
+
+  /* Desktop-only header actions are reachable via the mobile menu instead */
+  .header-desktop-only {
+    display: none;
+  }
+
+  .brand-title {
+    font-size: 1.05rem;
+    letter-spacing: 0.2em;
+  }
+
+  .brand-subtitle {
+    font-size: 0.5rem;
+  }
+
   .nav-links {
     display: none;
   }
 
   .mobile-nav-toggle {
     display: block;
+  }
+
+  .hero-section {
+    padding: 4rem 0 3.5rem;
+  }
+
+  .section-spacing {
+    padding: 4rem 0;
+  }
+
+  .container,
+  .container-narrow {
+    padding: 0 1.25rem;
+  }
+
+  .booking-flow-container {
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  .booking-left-sage,
+  .booking-right-white {
+    padding: 1.75rem 1.5rem;
   }
 
   .form-grid-2 {
@@ -1379,5 +1471,95 @@ img {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Step indicator: keep circles + connector, drop long translated labels */
+  .step-node span {
+    display: none;
+  }
+
+  .step-line {
+    width: 40px;
+  }
+
+  .step-indicator {
+    gap: 0.6rem;
+  }
+
+  /* Booking summary banner stacks instead of squeezing */
+  .summary-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+
+  /* Cookie banner: compact inset, actions use full width */
+  .cookie-banner-bar {
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    padding: 1.2rem;
+    gap: 1.2rem;
+  }
+
+  .cookie-actions {
+    width: 100%;
+  }
+
+  .cookie-actions .btn {
+    flex: 1 1 auto;
+  }
+
+  /* Notification drawer stacks list above preview */
+  .notif-drawer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Comfortable touch targets */
+  .lang-btn {
+    min-height: 44px;
+    padding: 0.5rem 0.85rem;
+  }
+
+  .cal-nav-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .slot-btn {
+    min-height: 44px;
+  }
+
+  .mobile-nav-toggle {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Let long translated button labels wrap instead of overflowing */
+  .btn {
+    white-space: normal;
+    text-align: center;
+    max-width: 100%;
+  }
+
+  .step2-actions-row {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .step2-actions-row .btn,
+  .calendar-actions-row .btn {
+    width: 100%;
+  }
+
+  .duration-pill-btn {
+    min-width: 0;
   }
 }

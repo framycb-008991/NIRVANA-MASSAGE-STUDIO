@@ -158,7 +158,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             <div className="accent-underline" style={{ margin: '0 auto 2.5rem' }} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2.5rem', fontSize: '1.05rem', lineHeight: '1.8' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))', gap: '2.5rem', fontSize: '1.05rem', lineHeight: '1.8' }}>
             <p>{t('home.philosophy_text_1')}</p>
             <p>{t('home.philosophy_text_2')}</p>
           </div>

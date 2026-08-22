@@ -61,7 +61,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
         </div>
 
         {/* The 3-Step Journey Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2.5rem', margin: '4rem 0 6rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(300px, 100%), 1fr))', gap: '2.5rem', margin: '4rem 0 6rem' }}>
           {journeySteps.map((step, idx) => (
             <div
               key={idx}
@@ -111,7 +111,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '1.5rem' }}>
             {[
               {
                 src: '/assets/alina-portrait-back.jpg',
@@ -216,7 +216,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
             padding: '3.5rem',
             border: '1px solid rgba(166, 169, 156, 0.35)',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
             gap: '3rem',
             alignItems: 'center',
             position: 'relative',

@@ -210,7 +210,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
         {/* TAB 1: CALENDAR & BLOCKS */}
         {activeTab === 'calendar' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '2rem' }}>
             {/* Upcoming Sessions */}
             <div style={{ backgroundColor: 'var(--white)', padding: '2rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
               <h3 style={{ fontSize: '1.4rem', marginBottom: '1.2rem' }}>Upcoming Client Appointments</h3>
@@ -458,7 +458,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               Sensitive health data collected solely upon explicit separate client consent for treatment safety and personalized care.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '1.5rem' }}>
               {intakes.length === 0 ? (
                 <p style={{ color: 'var(--ink-light)', padding: '2rem' }}>No health intake submissions yet.</p>
               ) : (
@@ -580,7 +580,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               Privacy-first funnel tracking without personal identifiers, strictly respecting cookie consent.
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
               <div style={{ padding: '1.5rem', backgroundColor: 'var(--sage-wash)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(166,169,156,0.4)' }}>
                 <div style={{ fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--taupe)' }}>
                   Step 1 (Select Time) Views

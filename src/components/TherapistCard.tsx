@@ -141,7 +141,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
               <Activity size={16} />
               <span>Clinical Skills &amp; Focus Areas</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '0.5rem' }}>
               {skills.map((skill, idx) => (
                 <div key={idx} style={{ backgroundColor: 'var(--white)', padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(201,190,176,0.35)', fontSize: '0.82rem', color: 'var(--ink)' }}>
                   • {skill}
@@ -156,7 +156,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
               <GraduationCap size={16} />
               <span>Academic Training &amp; Education</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.6rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '0.6rem' }}>
               {education.map((edu, i) => (
                 <div key={i} style={{ backgroundColor: 'var(--mist)', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(201,190,176,0.3)' }}>
                   <span className="badge badge-taupe" style={{ padding: '0.15rem 0.45rem', fontSize: '0.65rem', marginBottom: '3px' }}>{edu.year}</span>

@@ -54,7 +54,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
         </div>
 
         {/* 2-Column Info Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '3rem', margin: '4rem 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '3rem', margin: '4rem 0' }}>
           {/* Studio Details */}
           <div style={{ backgroundColor: 'var(--white)', padding: '3rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)', position: 'relative', overflow: 'hidden' }}>
             {/* Watermark in Studio Details Card */}

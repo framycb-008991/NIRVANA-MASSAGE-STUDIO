@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Book CTA on desktop */}
           <button
-            className="btn btn-primary"
+            className="btn btn-primary header-desktop-only"
             style={{ padding: '0.6rem 1.3rem', fontSize: '0.78rem' }}
             onClick={() => handleNavClick(`/${currentLocale}/booking`)}
           >
@@ -111,7 +111,7 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Practitioner Portal subtle link */}
           <button
-            className="btn btn-ghost"
+            className="btn btn-ghost header-desktop-only"
             style={{ padding: '0.5rem', borderRadius: '50%' }}
             onClick={() => handleNavClick(`/${currentLocale}/admin`)}
             title={t('nav.admin')}
@@ -135,9 +135,10 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Mobile Menu Slideout */}
       {mobileMenuOpen && (
         <div
+          className="mobile-menu-panel"
           style={{
             position: 'fixed',
-            top: '80px',
+            top: 'var(--header-h, 80px)',
             left: 0,
             right: 0,
             bottom: 0,
@@ -159,7 +160,10 @@ export const Header: React.FC<HeaderProps> = ({
                 fontSize: '1.8rem',
                 color: isActive(item.path) ? 'var(--taupe)' : 'var(--ink)',
                 borderBottom: '1px solid rgba(201, 190, 176, 0.3)',
-                paddingBottom: '0.8rem'
+                padding: '0.7rem 0',
+                minHeight: '52px',
+                display: 'flex',
+                alignItems: 'center'
               }}
               onClick={(e) => {
                 e.preventDefault();

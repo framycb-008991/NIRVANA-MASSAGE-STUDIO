@@ -220,7 +220,7 @@ export const HealthIntakePage: React.FC<HealthIntakePageProps> = ({
               <label className="form-label" style={{ marginBottom: '0.8rem' }}>
                 {t('intake.pressure_title')}
               </label>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '0.8rem' }}>
                 {[
                   { key: 'gentle', label: t('intake.pressure_gentle') },
                   { key: 'medium', label: t('intake.pressure_medium') },

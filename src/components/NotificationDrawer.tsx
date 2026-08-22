@@ -46,7 +46,7 @@ export const NotificationDrawer: React.FC<NotificationDrawerProps> = ({
             No notifications logged yet. Complete a booking or trigger one from the Admin portal.
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: '1.5rem' }}>
+          <div className="notif-drawer-grid" style={{ display: 'grid', gap: '1.5rem' }}>
             {/* List */}
             <div style={{ borderRight: '1px solid rgba(201,190,176,0.3)', paddingRight: '1rem', maxHeight: '420px', overflowY: 'auto' }}>
               <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--taupe)', marginBottom: '0.8rem', fontWeight: 600 }}>

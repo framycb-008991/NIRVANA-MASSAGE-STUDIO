@@ -87,7 +87,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
                 boxShadow: 'var(--shadow-subtle)',
                 padding: '2.5rem',
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(min(280px, 100%), 1fr))',
                 gap: '2.5rem',
                 alignItems: 'center',
                 position: 'relative',
