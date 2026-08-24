@@ -374,7 +374,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
         {/* TAB 1: CALENDAR & BLOCKS */}
         {activeTab === 'calendar' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '2rem' }}>
+          <div className="admin-calendar-grid">
             {/* Upcoming Sessions */}
             <div style={{ backgroundColor: 'var(--white)', padding: '2rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
               <h3 style={{ fontSize: '1.4rem', marginBottom: '1.2rem' }}>Upcoming Client Appointments</h3>

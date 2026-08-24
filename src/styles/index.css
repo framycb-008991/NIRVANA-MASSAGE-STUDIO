@@ -1642,3 +1642,17 @@ h1, h2, h3, h4, .badge, .brand-lockup, td, th {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Calendar tab: appointments + blocked dates sit side-by-side at full width */
+.admin-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .admin-calendar-grid {
+    grid-template-columns: 1fr;
+  }
+}
