@@ -1,23 +1,49 @@
 import { TimeSlot, Booking } from '../types';
 import { getBookings, getBlockedPeriods } from './storage';
 
-// Base daily schedule slots
-export const BASE_SLOTS = [
-  '09:30',
-  '11:00',
-  '12:30',
-  '14:00',
-  '15:30',
-  '17:00',
-  '18:30',
-  '20:00'
-];
+// Weekly studio schedule (24h). Key: JS Date.getDay() — 0 = Sunday ... 6 = Saturday
+export const WEEKLY_HOURS: Record<number, { open: string; close: string }> = {
+  0: { open: '09:00', close: '21:00' }, // Sunday
+  1: { open: '08:00', close: '14:00' }, // Monday
+  2: { open: '14:30', close: '22:00' }, // Tuesday
+  3: { open: '14:30', close: '22:00' }, // Wednesday
+  4: { open: '14:30', close: '22:00' }, // Thursday
+  5: { open: '08:00', close: '14:00' }, // Friday
+  6: { open: '09:00', close: '21:00' }  // Saturday
+};
 
+export const SLOT_INCREMENT_MINUTES = 90;
 export const BUFFER_MINUTES = 30; // 30-min buffer between sessions
 
 function timeToMinutes(timeStr: string): number {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
+}
+
+function minutesToTime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/**
+ * Generate bookable start times for a given date so that
+ * start + duration fits within that weekday's studio hours.
+ */
+export function getSlotsForDate(dateStr: string, durationMinutes: number): string[] {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const weekday = new Date(year, month - 1, day).getDay();
+  const hours = WEEKLY_HOURS[weekday];
+  if (!hours) return [];
+
+  const open = timeToMinutes(hours.open);
+  const close = timeToMinutes(hours.close);
+
+  const slots: string[] = [];
+  for (let t = open; t + durationMinutes <= close; t += SLOT_INCREMENT_MINUTES) {
+    slots.push(minutesToTime(t));
+  }
+  return slots;
 }
 
 /**
@@ -43,8 +69,10 @@ export function calculateAvailableSlots(
   const isToday = now.toISOString().split('T')[0] === dateStr;
   const isPast = isPastDate(year, month - 1, day) && !isToday;
 
+  const daySlots = getSlotsForDate(dateStr, durationMinutes);
+
   if (isPast) {
-    return BASE_SLOTS.map(time => ({ time, available: false, reason: 'past' }));
+    return daySlots.map(time => ({ time, available: false, reason: 'past' }));
   }
 
   // Get active bookings for this date
@@ -57,7 +85,7 @@ export function calculateAvailableSlots(
 
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  return BASE_SLOTS.map(slotTime => {
+  return daySlots.map(slotTime => {
     const slotStart = timeToMinutes(slotTime);
     const slotEnd = slotStart + durationMinutes;
 

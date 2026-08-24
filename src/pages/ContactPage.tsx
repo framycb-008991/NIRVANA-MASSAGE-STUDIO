@@ -96,8 +96,17 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 </div>
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>{t('contact.hours_label')}</div>
-                  <div style={{ fontSize: '1rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px' }}>
-                    {t('contact.hours_val')}
+                  <div style={{ fontSize: '0.95rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <span>{t('contact.hours_mon')}</span>
+                    <span>{t('contact.hours_tue')}</span>
+                    <span>{t('contact.hours_wed')}</span>
+                    <span>{t('contact.hours_thu')}</span>
+                    <span>{t('contact.hours_fri')}</span>
+                    <span>{t('contact.hours_sat')}</span>
+                    <span>{t('contact.hours_sun')}</span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--ink-light)', marginTop: '6px', fontStyle: 'italic' }}>
+                    {t('contact.hours_note')}
                   </div>
                 </div>
               </div>

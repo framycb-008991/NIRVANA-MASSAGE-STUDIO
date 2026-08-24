@@ -1,6 +1,7 @@
 import { Booking, Locale, NotificationRecord } from '../types';
 import { formatLocaleDate } from './i18n';
 import { logNotification } from './storage';
+import { getPractitionerEmail } from './settings';
 
 export function sendBookingConfirmedNotification(booking: Booking, treatmentName: string): { clientRecord: NotificationRecord; practitionerRecord: NotificationRecord } {
   const clientLocale: Locale = booking.locale || 'en';
@@ -42,7 +43,7 @@ export function sendBookingConfirmedNotification(booking: Booking, treatmentName
     bookingId: booking.id,
     type: 'booking_confirmed',
     recipient: 'practitioner',
-    recipientEmail: 'alina@nirvanamassage.pl',
+    recipientEmail: getPractitionerEmail(),
     subject: `[Nowa Rezerwacja] ${booking.client.firstName} ${booking.client.surname} — ${treatmentName} (${booking.date} ${booking.timeSlot})`,
     body: `Nowa rezerwacja online:\n• Klient: ${booking.client.firstName} ${booking.client.surname} (${booking.client.email}, tel: ${booking.client.phone || 'brak'})\n• Zabieg: ${treatmentName} (${booking.durationMinutes} min)\n• Data: ${booking.date} godz. ${booking.timeSlot}\n• Typ: ${booking.bookingType === 'in_studio' ? 'W studio (Wrocław)' : `Wyjazdowa: ${booking.location}`}\n• Notatka klienta: ${booking.client.notes || 'brak'}\n• Zadatek: ${booking.depositPLN} PLN opłacony.`,
     timestamp: new Date().toISOString(),
@@ -88,7 +89,7 @@ export function sendCancellationNotification(booking: Booking, treatmentName: st
     bookingId: booking.id,
     type: 'booking_cancelled',
     recipient: 'practitioner',
-    recipientEmail: 'alina@nirvanamassage.pl',
+    recipientEmail: getPractitionerEmail(),
     subject: `[Anulowano] Rezerwacja ${booking.client.firstName} ${booking.client.surname} (${booking.date})`,
     body: `Rezerwacja na ${treatmentName} w dniu ${booking.date} (${booking.timeSlot}) została anulowana.`,
     timestamp: new Date().toISOString(),

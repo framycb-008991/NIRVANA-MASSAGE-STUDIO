@@ -122,7 +122,7 @@ export function updatePageSEO(page: string, locale: Locale): void {
         description: 'A calm, timeless solo-practitioner physiotherapy and massage studio in Wrocław, Poland.',
         slogan: 'From tension to tranquility.',
         url: 'https://nirvanamassage.pl',
-        telephone: '+48 22 890 1234',
+        telephone: '+48 731 920 280',
         email: 'contact@nirvanamassage.pl',
         sameAs: [
           'https://www.instagram.com/nirvana_massage.studio/',
@@ -146,9 +146,21 @@ export function updatePageSEO(page: string, locale: Locale): void {
         openingHoursSpecification: [
           {
             '@type': 'OpeningHoursSpecification',
-            dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+            dayOfWeek: ['Monday', 'Friday'],
+            opens: '08:00',
+            closes: '14:00'
+          },
+          {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: ['Tuesday', 'Wednesday', 'Thursday'],
+            opens: '14:30',
+            closes: '22:00'
+          },
+          {
+            '@type': 'OpeningHoursSpecification',
+            dayOfWeek: ['Saturday', 'Sunday'],
             opens: '09:00',
-            closes: '20:30'
+            closes: '21:00'
           }
         ],
         founder: {

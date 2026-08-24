@@ -5,6 +5,7 @@ import { TREATMENTS, saveBooking } from '../services/storage';
 import { calculateAvailableSlots, generateICS, createGoogleCalendarUrl } from '../services/calendar';
 import { sendBookingConfirmedNotification } from '../services/notifications';
 import { trackAnalyticsEvent } from '../services/storage';
+import { useAvailability } from '../hooks/useAvailability';
 import { StepIndicator } from '../components/StepIndicator';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import {
@@ -92,10 +93,23 @@ export const BookingPage: React.FC<BookingPageProps> = ({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Live availability from the serverless API (Supabase + Google Calendar),
+  // falling back to the local calculation when the backend is unreachable.
+  const { slots: apiSlots, error: availabilityError } = useAvailability(selectedDateStr, selectedDuration);
+
   // Calculate live available slots
   const availableSlots = useMemo(() => {
-    return calculateAvailableSlots(selectedDateStr, selectedDuration);
-  }, [selectedDateStr, selectedDuration]);
+    const localSlots = calculateAvailableSlots(selectedDateStr, selectedDuration);
+    if (availabilityError || !apiSlots) return localSlots;
+
+    // API is authoritative for the times it returns (includes Google Calendar conflicts)
+    const apiByTime = new Map(apiSlots.map(s => [s.time, s.available]));
+    return localSlots.map(slot =>
+      apiByTime.has(slot.time)
+        ? { ...slot, available: slot.available && apiByTime.get(slot.time)! }
+        : slot
+    );
+  }, [selectedDateStr, selectedDuration, apiSlots, availabilityError]);
 
   // Track Step 1 View
   useEffect(() => {
@@ -223,6 +237,32 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     setTimeout(() => {
       saveBooking(newBooking);
       sendBookingConfirmedNotification(newBooking, t(selectedTreatment.nameKey));
+
+      // Persist to the serverless backend (Supabase + Google Calendar + emails).
+      // Fire-and-forget: the local flow above remains the source of truth in dev.
+      fetch('/api/create-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: newBooking.client.firstName,
+          surname: newBooking.client.surname,
+          email: newBooking.client.email,
+          phone: newBooking.client.phone,
+          treatmentId: newBooking.treatmentId,
+          treatmentName: t(selectedTreatment.nameKey),
+          durationMinutes: newBooking.durationMinutes,
+          pricePLN: newBooking.pricePLN,
+          depositPLN: newBooking.depositPLN,
+          date: newBooking.date,
+          timeSlot: newBooking.timeSlot,
+          bookingType: newBooking.bookingType,
+          location: newBooking.location,
+          notes: newBooking.client.notes,
+          locale: newBooking.locale
+        })
+      }).catch(() => {
+        // Backend not deployed/reachable (local dev) — booking kept locally
+      });
 
       trackAnalyticsEvent({
         id: 'evt_' + Math.random().toString(36).substr(2, 9),

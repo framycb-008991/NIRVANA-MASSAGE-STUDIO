@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Locale, Booking, BlockedPeriod, HealthIntake, NotificationRecord } from '../types';
 import { getTranslation, formatLocaleDate } from '../services/i18n';
 import {
@@ -13,6 +13,8 @@ import {
   TREATMENTS
 } from '../services/storage';
 import { sendCancellationNotification } from '../services/notifications';
+import { getPractitionerEmail, setPractitionerEmail } from '../services/settings';
+import { useAdminSchedule } from '../hooks/useAdminSchedule';
 import { NotificationDrawer } from '../components/NotificationDrawer';
 import {
   Calendar as CalendarIcon,
@@ -20,6 +22,7 @@ import {
   HeartPulse,
   Mail,
   BarChart3,
+  Settings as SettingsIcon,
   Plus,
   Trash2,
   CheckCircle2,
@@ -39,7 +42,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
 
-  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics' | 'settings'>('calendar');
 
   // Data state
   const [bookings, setBookings] = useState<Booking[]>(getBookings());
@@ -62,6 +65,43 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   // Notification Drawer
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+
+  // Studio Settings (practitioner notification email)
+  const adminSchedule = useAdminSchedule();
+  const [practitionerEmail, setPractitionerEmailState] = useState(getPractitionerEmail());
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  // Load the email persisted in the backend (falls back to local mirror)
+  useEffect(() => {
+    adminSchedule.getSettings()
+      .then((s) => {
+        if (s?.practitionerEmail) {
+          setPractitionerEmailState(s.practitionerEmail);
+          setPractitionerEmail(s.practitionerEmail);
+        }
+      })
+      .catch(() => {
+        // Backend not reachable (local dev) — local mirror already loaded
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsSaving(true);
+    setSettingsMsg('idle');
+    try {
+      // Persist to Supabase via the serverless API when available
+      await adminSchedule.updatePractitionerEmail(practitionerEmail);
+    } catch {
+      // Backend not deployed/reachable yet — local mirror still applies
+    }
+    // Always keep the local mirror in sync so dev-mode notifications use it
+    setPractitionerEmail(practitionerEmail);
+    setSettingsSaving(false);
+    setSettingsMsg('saved');
+  };
 
   const refreshData = () => {
     setBookings(getBookings());
@@ -182,7 +222,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             { id: 'bookings', label: `${t('admin.tab_bookings')} (${bookings.length})`, icon: <List size={16} /> },
             { id: 'intake', label: `${t('admin.tab_intake')} (${intakes.length})`, icon: <HeartPulse size={16} /> },
             { id: 'notifications', label: `${t('admin.tab_notifications')} (${notifications.length})`, icon: <Mail size={16} /> },
-            { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={16} /> }
+            { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={16} /> },
+            { id: 'settings', label: t('admin.tab_settings'), icon: <SettingsIcon size={16} /> }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -621,6 +662,55 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB 6: STUDIO SETTINGS */}
+        {activeTab === 'settings' && (
+          <div style={{ backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <SettingsIcon size={20} color="#8A7A68" />
+              <h3 style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin.settings_title')}</h3>
+            </div>
+
+            <form onSubmit={handleSaveSettings} style={{ maxWidth: '480px', marginTop: '1.5rem' }}>
+              <div className="form-group">
+                <label className="form-label" htmlFor="practitioner-email">
+                  {t('admin.settings_email_label')}
+                </label>
+                <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', margin: '0 0 0.6rem' }}>
+                  {t('admin.settings_email_desc')}
+                </p>
+                <input
+                  id="practitioner-email"
+                  type="email"
+                  className="custom-input"
+                  required
+                  value={practitionerEmail}
+                  onChange={(e) => {
+                    setPractitionerEmailState(e.target.value);
+                    setSettingsMsg('idle');
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.2rem' }}>
+                <button type="submit" className="btn btn-primary" disabled={settingsSaving}>
+                  {t('admin.settings_save')}
+                </button>
+                {settingsMsg === 'saved' && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#557A55', fontSize: '0.88rem', fontWeight: 500 }}>
+                    <CheckCircle2 size={16} />
+                    {t('admin.settings_saved')}
+                  </span>
+                )}
+                {settingsMsg === 'error' && (
+                  <span style={{ color: '#B25E5E', fontSize: '0.88rem' }}>
+                    {t('admin.settings_error')}
+                  </span>
+                )}
+              </div>
+            </form>
           </div>
         )}
       </div>
