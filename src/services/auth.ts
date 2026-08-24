@@ -2,11 +2,17 @@
 // The token itself is an HMAC-signed, expiring string issued by
 // /api/admin/login — see ACCESS_CONTROL_SPEC.md.
 
+// TEMPORARY: password gate disabled while the site is being finished.
+// Flip back to true to re-enable the admin login screen
+// (and set ADMIN_PASSWORD + ADMIN_SESSION_SECRET on the server).
+export const ADMIN_AUTH_ENABLED = false;
+
 const TOKEN_KEY = 'nirvana_admin_token';
 const EXPIRY_KEY = 'nirvana_admin_token_exp';
 
 /** Returns the stored session token, or null when missing/expired. */
 export function getAdminToken(): string | null {
+  if (!ADMIN_AUTH_ENABLED) return 'auth-disabled';
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const expiry = localStorage.getItem(EXPIRY_KEY);

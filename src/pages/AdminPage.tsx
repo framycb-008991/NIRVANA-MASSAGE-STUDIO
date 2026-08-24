@@ -14,7 +14,7 @@ import {
 } from '../services/storage';
 import { sendCancellationNotification } from '../services/notifications';
 import { getPractitionerEmail, setPractitionerEmail } from '../services/settings';
-import { getAdminToken, clearAdminToken } from '../services/auth';
+import { getAdminToken, clearAdminToken, ADMIN_AUTH_ENABLED } from '../services/auth';
 import { PHOTO_SLOTS, getPhoto, uploadPhoto, resetPhoto, getPhotoOverrideMap } from '../services/photos';
 import { CONTENT_SLOTS, getContent, setContentOverrides } from '../services/content';
 import { getWorkingHours, setWorkingHours, WorkingDay } from '../services/hours';
@@ -302,14 +302,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <span>{t('admin.block_time_btn')}</span>
             </button>
 
-            <button
-              className="btn btn-ghost"
-              onClick={handleLogout}
-              title={t('admin.logout')}
-            >
-              <LogOut size={16} />
-              <span>{t('admin.logout')}</span>
-            </button>
+            {ADMIN_AUTH_ENABLED && (
+              <button
+                className="btn btn-ghost"
+                onClick={handleLogout}
+                title={t('admin.logout')}
+              >
+                <LogOut size={16} />
+                <span>{t('admin.logout')}</span>
+              </button>
+            )}
           </div>
         </div>
 
