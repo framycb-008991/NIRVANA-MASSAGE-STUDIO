@@ -1,7 +1,7 @@
 import React from 'react';
 import { Locale } from '../types';
 import { getTranslation, formatCurrency } from '../services/i18n';
-import { TREATMENTS } from '../services/storage';
+import { getAllTreatments, treatmentImageSrc } from '../services/treatments';
 import { usePhotos } from '../hooks/usePhotos';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import { DynamicPhotoShowcase, PhotoSlide } from '../components/DynamicPhotoShowcase';
@@ -22,7 +22,7 @@ export const HomePage: React.FC<HomePageProps> = ({
   const t = (key: string) => getTranslation(key, currentLocale);
   const { photo } = usePhotos();
 
-  const featuredTreatments = TREATMENTS.filter(t => t.featured);
+  const featuredTreatments = getAllTreatments().filter(t => t.featured);
 
   const heroSlides: PhotoSlide[] = [
     {
@@ -206,7 +206,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <div>
                     <div style={{ position: 'relative', height: '170px', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '1.2rem', backgroundColor: 'var(--mist)' }}>
                       <img
-                        src={photo(`treatment-${treatment.id}`)}
+                        src={treatmentImageSrc(treatment, photo)}
                         alt={t(treatment.nameKey)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.4s ease' }}
                         loading="lazy"

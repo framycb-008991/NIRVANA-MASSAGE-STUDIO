@@ -47,7 +47,15 @@ export const PHOTO_SLOTS: PhotoSlotDef[] = [
 
 const OVERRIDES_KEY = 'nirvana_photo_overrides';
 
+/** Maximum accepted upload size — mirrors MAX_BYTES in api/admin/photos.js. */
+export const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
+
 const slotIndex = new Map(PHOTO_SLOTS.map((s) => [s.slot, s]));
+
+/** True when `slot` is a known, manageable photo slot. */
+export function hasPhotoSlot(slot: string): boolean {
+  return slotIndex.has(slot);
+}
 
 function readOverrides(): Record<string, string> {
   try {
@@ -114,6 +122,9 @@ function readFileAsDataUrl(file: File): Promise<string> {
  */
 export async function uploadPhoto(slot: string, file: File): Promise<string> {
   if (!slotIndex.has(slot)) throw new Error('Unknown photo slot.');
+  if (file.size > MAX_PHOTO_BYTES) {
+    throw new Error('Image is too large (max 10 MB).');
+  }
 
   const dataUrl = await readFileAsDataUrl(file);
   const dataBase64 = dataUrl.split(',')[1] || '';

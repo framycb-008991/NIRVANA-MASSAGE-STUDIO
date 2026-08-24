@@ -43,7 +43,7 @@ Adding a new slot: add it to both registries with a default asset, then resolve 
 | | |
 |---|---|
 | Body | `{ slot, fileName, contentType, dataBase64, alt? }` |
-| Constraints | `slot` must be in the registry; `contentType` ∈ `image/jpeg`, `image/png`, `image/webp`; decoded size ≤ **4 MB** |
+| Constraints | `slot` must be in the registry; `contentType` ∈ `image/jpeg`, `image/png`, `image/webp`; decoded size ≤ **10 MB** |
 | 200 | `{ slot, url }` — uploaded, row upserted |
 | Errors | 400 validation · 401 unauthorized · 413 too large · 500 server |
 
@@ -59,6 +59,6 @@ Adding a new slot: add it to both registries with a default asset, then resolve 
 
 ## 6. Constraints & notes
 
-- Max upload size 4 MB; no server-side resizing (practitioner should export web-sized JPGs, see `PHOTOGRAPHY_ASSET_SPEC.md` for style guidance).
+- Max upload size 10 MB; no server-side resizing (practitioner should export web-sized JPGs, see `PHOTOGRAPHY_ASSET_SPEC.md` for style guidance).
 - Alt text on public slots stays the curated copy in the page components; the optional `alt` field is stored for future use.
 - Replacing a treatment photo changes it everywhere that treatment image renders (Services + Home featured cards).

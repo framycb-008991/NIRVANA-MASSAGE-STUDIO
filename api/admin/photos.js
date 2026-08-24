@@ -10,7 +10,7 @@
  *   slot: string,          // one of the registry slots (api/_lib/photoSlots.js)
  *   fileName: string,      // original file name (used for the extension)
  *   contentType: string,   // image/jpeg | image/png | image/webp
- *   dataBase64: string,    // raw file bytes, base64-encoded (max ~4 MB decoded)
+ *   dataBase64: string,    // raw file bytes, base64-encoded (max ~10 MB decoded)
  *   alt?: string           // optional alt text stored with the override
  * }
  * POST response:   200 { slot, url }
@@ -28,7 +28,7 @@ const ALLOWED_TYPES = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
-const MAX_BYTES = 4 * 1024 * 1024; // 4 MB decoded
+const MAX_BYTES = 10 * 1024 * 1024; // 10 MB decoded
 
 /** Strips a directory traversal / odd chars from an uploaded file name. */
 function safeFileName(name) {
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Uploaded file is empty.' });
       }
       if (buffer.length > MAX_BYTES) {
-        return res.status(413).json({ error: 'Image is too large (max 4 MB).' });
+        return res.status(413).json({ error: 'Image is too large (max 10 MB).' });
       }
 
       const storagePath = `${slot}/${Date.now()}-${safeFileName(fileName)}`;

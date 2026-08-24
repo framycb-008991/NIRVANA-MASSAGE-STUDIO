@@ -47,6 +47,15 @@ export function getContent(key: string): string {
 }
 
 /**
+ * Raw cached value for any content key — including keys outside CONTENT_SLOTS
+ * (e.g. `custom_treatments`, which the public API returns but which is not a
+ * simple editable slot). Undefined when nothing is cached locally.
+ */
+export function getContentOverride(key: string): string | undefined {
+  return readOverrides()[key];
+}
+
+/**
  * Pulls the latest public content values from the API and caches them.
  * Silent no-op when the backend is unreachable (dev / static hosting).
  */

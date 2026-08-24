@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Locale, Booking, BlockedPeriod, HealthIntake, NotificationRecord } from '../types';
+import { Locale, Booking, BlockedPeriod, HealthIntake, NotificationRecord, TreatmentDuration } from '../types';
 import { getTranslation, formatLocaleDate } from '../services/i18n';
 import {
   getBookings,
@@ -9,9 +9,16 @@ import {
   updateBookingStatus,
   getHealthIntakes,
   getNotifications,
-  getAnalyticsEvents,
-  TREATMENTS
+  getAnalyticsEvents
 } from '../services/storage';
+import {
+  CustomTreatment,
+  CUSTOM_TREATMENT_IMAGES,
+  generateCustomTreatmentId,
+  getAllTreatments,
+  getCustomTreatments,
+  saveCustomTreatments
+} from '../services/treatments';
 import { sendCancellationNotification } from '../services/notifications';
 import { getPractitionerEmail, setPractitionerEmail } from '../services/settings';
 import { getAdminToken, clearAdminToken, ADMIN_AUTH_ENABLED } from '../services/auth';
@@ -96,8 +103,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           setPractitionerEmail(s.practitionerEmail);
         }
         if (s?.content) {
-          setContactInfo((prev) => ({ ...prev, ...s.content }));
+          const incoming = { ...s.content };
+          // custom_treatments is managed by the services section below, not
+          // by the contact-info form — keep it out of that form's state.
+          delete incoming.custom_treatments;
+          setContactInfo((prev) => ({ ...prev, ...incoming }));
           setContentOverrides(s.content);
+          setCustomServices(getCustomTreatments());
         }
       })
       .catch(() => {
@@ -122,6 +134,68 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     setContentOverrides(contactInfo);
     setSettingsSaving(false);
     setSettingsMsg('saved');
+  };
+
+  // Custom massage services (Admin Panel → Settings → services section)
+  const [customServices, setCustomServices] = useState<CustomTreatment[]>(getCustomTreatments());
+  const [svcForm, setSvcForm] = useState({
+    name: '',
+    category: '',
+    shortDesc: '',
+    fullDesc: '',
+    image: CUSTOM_TREATMENT_IMAGES[0].value as string,
+    featured: true,
+  });
+  const [svcDurations, setSvcDurations] = useState<TreatmentDuration[]>([
+    { minutes: 60, pricePLN: 200, priceEUR: 46 },
+  ]);
+  const [svcSaving, setSvcSaving] = useState(false);
+  const [svcMsg, setSvcMsg] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  const persistCustomServices = async (list: CustomTreatment[]): Promise<boolean> => {
+    setSvcSaving(true);
+    setSvcMsg('idle');
+    try {
+      await saveCustomTreatments(list);
+      setCustomServices(list);
+      setSvcMsg('saved');
+      return true;
+    } catch {
+      setSvcMsg('error');
+      return false;
+    } finally {
+      setSvcSaving(false);
+    }
+  };
+
+  const handleAddService = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const durations = svcDurations.filter(
+      (d) => Number.isInteger(d.minutes) && d.minutes >= 10 && d.pricePLN >= 0 && d.priceEUR >= 0
+    );
+    if (!svcForm.name.trim() || durations.length === 0) {
+      setSvcMsg('error');
+      return;
+    }
+    const service: CustomTreatment = {
+      id: generateCustomTreatmentId(svcForm.name),
+      name: svcForm.name.trim(),
+      category: svcForm.category.trim(),
+      shortDesc: svcForm.shortDesc.trim(),
+      fullDesc: svcForm.fullDesc.trim(),
+      durations,
+      image: svcForm.image,
+      featured: svcForm.featured,
+    };
+    const ok = await persistCustomServices([...customServices, service]);
+    if (ok) {
+      setSvcForm({ name: '', category: '', shortDesc: '', fullDesc: '', image: CUSTOM_TREATMENT_IMAGES[0].value, featured: true });
+      setSvcDurations([{ minutes: 60, pricePLN: 200, priceEUR: 46 }]);
+    }
+  };
+
+  const handleDeleteService = async (id: string) => {
+    await persistCustomServices(customServices.filter((s) => s.id !== id));
   };
 
   // Photo slot management
@@ -236,7 +310,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   const handleCancelBooking = (booking: Booking) => {
     if (confirm(`Are you sure you want to cancel the booking for ${booking.client.firstName} ${booking.client.surname}?`)) {
       updateBookingStatus(booking.id, 'cancelled');
-      const treatment = TREATMENTS.find(t => t.id === booking.treatmentId);
+      const treatment = getAllTreatments().find(t => t.id === booking.treatmentId);
       const treatmentName = treatment ? t(treatment.nameKey) : 'Massage Treatment';
       sendCancellationNotification(booking, treatmentName);
       refreshData();
@@ -383,7 +457,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   <p style={{ color: 'var(--ink-light)', fontSize: '0.9rem' }}>No confirmed upcoming bookings.</p>
                 ) : (
                   bookings.filter(b => b.status === 'confirmed').map((bk) => {
-                    const treatment = TREATMENTS.find(t => t.id === bk.treatmentId);
+                    const treatment = getAllTreatments().find(t => t.id === bk.treatmentId);
                     return (
                       <div
                         key={bk.id}
@@ -632,7 +706,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     </tr>
                   ) : (
                     filteredBookings.map((bk) => {
-                      const treatment = TREATMENTS.find(t => t.id === bk.treatmentId);
+                      const treatment = getAllTreatments().find(t => t.id === bk.treatmentId);
                       return (
                         <tr key={bk.id} style={{ borderBottom: '1px solid rgba(201,190,176,0.2)' }}>
                           <td style={{ padding: '1rem' }}>
@@ -878,8 +952,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <ImageIcon size={20} color="#8A7A68" />
               <h3 style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin.photos_title')}</h3>
             </div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--ink-light)', marginBottom: '2rem' }}>
+            <p style={{ fontSize: '0.9rem', color: 'var(--ink-light)', marginBottom: '0.4rem' }}>
               {t('admin.photos_desc')}
+            </p>
+            <p style={{ fontSize: '0.8rem', color: 'var(--taupe)', marginBottom: '2rem' }}>
+              {t('admin.photos_limit')}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
@@ -936,11 +1013,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                         {isCustom && (
                           <button
                             className="btn btn-ghost"
-                            style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: '#B25E5E' }}
+                            style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: '#B25E5E', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                             disabled={busy}
+                            title={t('admin.photo_delete_hint')}
                             onClick={() => void handlePhotoReset(def.slot)}
                           >
-                            {t('admin.photo_reset')}
+                            <Trash2 size={13} />
+                            {t('admin.photo_delete')}
                           </button>
                         )}
                       </div>
@@ -1033,6 +1112,203 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                 )}
               </div>
             </form>
+
+            {/* Custom massage services manager */}
+            <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(201,190,176,0.3)' }}>
+              <h4 style={{ fontSize: '1.15rem', margin: '0 0 0.3rem' }}>{t('admin.services_title')}</h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', margin: '0 0 1.2rem' }}>
+                {t('admin.services_desc')}
+              </p>
+
+              {customServices.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', fontStyle: 'italic', margin: '0 0 1.2rem' }}>
+                  {t('admin.services_none')}
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.5rem' }}>
+                  {customServices.map((svc) => (
+                    <div
+                      key={svc.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
+                        padding: '0.7rem 1rem', borderRadius: 'var(--radius-md)',
+                        border: '1px solid rgba(201,190,176,0.4)', backgroundColor: 'var(--mist)'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 500, fontSize: '0.92rem', color: 'var(--ink)' }}>
+                          {svc.name}
+                          {svc.category && (
+                            <span style={{ marginLeft: '0.5rem', fontWeight: 400, fontSize: '0.78rem', color: 'var(--taupe)' }}>
+                              {svc.category}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.76rem', color: 'var(--ink-light)' }}>
+                          {svc.durations.map((d) => `${d.minutes} min — ${d.pricePLN} PLN / ${d.priceEUR} EUR`).join(' · ')}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: '#B25E5E', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0 }}
+                        disabled={svcSaving}
+                        onClick={() => void handleDeleteService(svc.id)}
+                      >
+                        <Trash2 size={13} />
+                        {t('admin.service_delete')}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={handleAddService}>
+                <div className="admin-settings-grid">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="svc-name">{t('admin.service_name')} *</label>
+                    <input
+                      id="svc-name"
+                      type="text"
+                      className="custom-input"
+                      required
+                      value={svcForm.name}
+                      onChange={(e) => { setSvcForm({ ...svcForm, name: e.target.value }); setSvcMsg('idle'); }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="svc-category">{t('admin.service_category')}</label>
+                    <input
+                      id="svc-category"
+                      type="text"
+                      className="custom-input"
+                      value={svcForm.category}
+                      onChange={(e) => setSvcForm({ ...svcForm, category: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="svc-image">{t('admin.service_image')}</label>
+                    <select
+                      id="svc-image"
+                      className="custom-input"
+                      value={svcForm.image}
+                      onChange={(e) => setSvcForm({ ...svcForm, image: e.target.value })}
+                    >
+                      {CUSTOM_TREATMENT_IMAGES.map((img) => (
+                        <option key={img.value} value={img.value}>{img.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '0.4rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={svcForm.featured}
+                        onChange={(e) => setSvcForm({ ...svcForm, featured: e.target.checked })}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--taupe)' }}
+                      />
+                      {t('admin.service_featured')}
+                    </label>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="svc-short">{t('admin.service_short')}</label>
+                  <input
+                    id="svc-short"
+                    type="text"
+                    className="custom-input"
+                    value={svcForm.shortDesc}
+                    onChange={(e) => setSvcForm({ ...svcForm, shortDesc: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="svc-full">{t('admin.service_full')}</label>
+                  <textarea
+                    id="svc-full"
+                    className="custom-input"
+                    rows={3}
+                    value={svcForm.fullDesc}
+                    onChange={(e) => setSvcForm({ ...svcForm, fullDesc: e.target.value })}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">{t('admin.service_durations')} *</label>
+                  {svcDurations.map((d, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                      <input
+                        type="number"
+                        className="custom-input"
+                        style={{ width: '110px' }}
+                        min={10}
+                        max={480}
+                        step={5}
+                        placeholder={t('admin.service_minutes')}
+                        value={d.minutes}
+                        onChange={(e) => setSvcDurations(svcDurations.map((x, j) => j === i ? { ...x, minutes: Number(e.target.value) } : x))}
+                      />
+                      <input
+                        type="number"
+                        className="custom-input"
+                        style={{ width: '110px' }}
+                        min={0}
+                        placeholder={t('admin.service_price_pln')}
+                        value={d.pricePLN}
+                        onChange={(e) => setSvcDurations(svcDurations.map((x, j) => j === i ? { ...x, pricePLN: Number(e.target.value) } : x))}
+                      />
+                      <input
+                        type="number"
+                        className="custom-input"
+                        style={{ width: '110px' }}
+                        min={0}
+                        placeholder={t('admin.service_price_eur')}
+                        value={d.priceEUR}
+                        onChange={(e) => setSvcDurations(svcDurations.map((x, j) => j === i ? { ...x, priceEUR: Number(e.target.value) } : x))}
+                      />
+                      {svcDurations.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          style={{ padding: '0.3rem 0.5rem', color: '#B25E5E' }}
+                          onClick={() => setSvcDurations(svcDurations.filter((_, j) => j !== i))}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {svcDurations.length < 4 && (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ padding: '0.35rem 0.8rem', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                      onClick={() => setSvcDurations([...svcDurations, { minutes: 90, pricePLN: 300, priceEUR: 70 }])}
+                    >
+                      <Plus size={13} />
+                      {t('admin.service_add_duration')}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.8rem' }}>
+                  <button type="submit" className="btn btn-primary" disabled={svcSaving}>
+                    {t('admin.service_add')}
+                  </button>
+                  {svcMsg === 'saved' && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#557A55', fontSize: '0.88rem', fontWeight: 500 }}>
+                      <CheckCircle2 size={16} />
+                      {t('admin.service_saved')}
+                    </span>
+                  )}
+                  {svcMsg === 'error' && (
+                    <span style={{ color: '#B25E5E', fontSize: '0.88rem' }}>
+                      {t('admin.service_error')}
+                    </span>
+                  )}
+                </div>
+              </form>
+            </div>
           </div>
         )}
       </div>

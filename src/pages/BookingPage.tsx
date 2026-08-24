@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Locale, BookingType, Booking, BookingClient } from '../types';
 import { getTranslation, formatLocaleDate, formatMonthYear, formatCurrency } from '../services/i18n';
-import { TREATMENTS, saveBooking } from '../services/storage';
+import { saveBooking } from '../services/storage';
+import { getAllTreatments } from '../services/treatments';
 import { calculateAvailableSlots, generateICS, createGoogleCalendarUrl } from '../services/calendar';
 import { sendBookingConfirmedNotification } from '../services/notifications';
 import { trackAnalyticsEvent } from '../services/storage';
@@ -45,11 +46,12 @@ export const BookingPage: React.FC<BookingPageProps> = ({
 
   // Form selections (Step 1)
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<string>(
-    preselectedTreatmentId || TREATMENTS[0].id
+    preselectedTreatmentId || getAllTreatments()[0].id
   );
 
   const selectedTreatment = useMemo(() => {
-    return TREATMENTS.find(t => t.id === selectedTreatmentId) || TREATMENTS[0];
+    const all = getAllTreatments();
+    return all.find(t => t.id === selectedTreatmentId) || all[0];
   }, [selectedTreatmentId]);
 
   const [selectedDuration, setSelectedDuration] = useState<number>(
@@ -625,7 +627,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
                   value={selectedTreatmentId}
                   onChange={(e) => setSelectedTreatmentId(e.target.value)}
                 >
-                  {TREATMENTS.map((tr) => (
+                  {getAllTreatments().map((tr) => (
                     <option key={tr.id} value={tr.id}>
                       {t(tr.nameKey)} ({tr.categoryKey})
                     </option>

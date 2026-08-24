@@ -34,6 +34,15 @@ export const CONTENT_SLOTS = [
     public: true,
     label: 'Instagram handle',
   },
+  // Admin-managed extra massage services, stored as a JSON array and merged
+  // with the built-in catalog on the public site. Public so visitors see
+  // them; validated in api/admin/settings.js.
+  {
+    key: 'custom_treatments',
+    defaultValue: '',
+    public: true,
+    label: 'Custom massage services (JSON)',
+  },
   // Admin-only slots (never exposed by the public /api/content endpoint):
   {
     key: 'practitioner_email',

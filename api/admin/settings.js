@@ -26,9 +26,54 @@ import { CONTENT_SLOTS, isContentKey, getContentDefault } from '../_lib/contentS
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_VALUE_LENGTH = 300;
+/** custom_treatments stores a JSON array of service objects — needs more room. */
+const MAX_TREATMENTS_LENGTH = 20000;
 
 /** Slots whose value must be a valid email address. */
 const EMAIL_KEYS = new Set(['practitioner_email', 'contact_email']);
+
+/** Validates the custom_treatments JSON payload. Returns an error string or null. */
+function validateCustomTreatments(value) {
+  if (value === '') return null; // empty = no custom services
+  let list;
+  try {
+    list = JSON.parse(value);
+  } catch {
+    return 'custom_treatments must be valid JSON.';
+  }
+  if (!Array.isArray(list) || list.length > 20) {
+    return 'custom_treatments must be an array of at most 20 services.';
+  }
+  for (const item of list) {
+    if (!item || typeof item !== 'object') return 'Each custom treatment must be an object.';
+    if (typeof item.id !== 'string' || !/^[a-z0-9_]{2,60}$/.test(item.id)) {
+      return 'Each custom treatment needs an id of 2-60 lowercase letters, digits or underscores.';
+    }
+    if (typeof item.name !== 'string' || item.name.trim().length === 0 || item.name.length > 120) {
+      return 'Each custom treatment needs a name (max 120 characters).';
+    }
+    for (const field of ['category', 'shortDesc', 'fullDesc']) {
+      if (item[field] != null && (typeof item[field] !== 'string' || item[field].length > 2000)) {
+        return `custom_treatments field ${field} must be a string of at most 2000 characters.`;
+      }
+    }
+    if (item.image != null && (typeof item.image !== 'string' || !item.image.startsWith('/assets/'))) {
+      return 'custom_treatments image must be a bundled asset path (/assets/...).';
+    }
+    if (!Array.isArray(item.durations) || item.durations.length < 1 || item.durations.length > 4) {
+      return 'Each custom treatment needs 1-4 duration options.';
+    }
+    for (const d of item.durations) {
+      if (!d || typeof d !== 'object' ||
+          !Number.isInteger(d.minutes) || d.minutes < 10 || d.minutes > 480 ||
+          typeof d.pricePLN !== 'number' || d.pricePLN < 0 ||
+          typeof d.priceEUR !== 'number' || d.priceEUR < 0) {
+        return 'Each duration needs minutes (10-480), pricePLN and priceEUR numbers.';
+      }
+    }
+  }
+  return null;
+}
 
 /** Reads all slots from the DB and returns them merged over the defaults. */
 async function loadAllSettings(supabase) {
@@ -55,6 +100,13 @@ async function loadAllSettings(supabase) {
 /** Validates one content entry. Returns an error string or null. */
 function validateContentEntry(key, value) {
   if (!isContentKey(key)) return `Unknown settings key: ${key}`;
+  if (key === 'custom_treatments') {
+    if (typeof value !== 'string') return 'custom_treatments must be a JSON string.';
+    if (value.length > MAX_TREATMENTS_LENGTH) {
+      return `custom_treatments is too long (max ${MAX_TREATMENTS_LENGTH} characters).`;
+    }
+    return validateCustomTreatments(value);
+  }
   if (typeof value !== 'string' || value.trim().length === 0) {
     return `Value for ${key} must be a non-empty string.`;
   }
