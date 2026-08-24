@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Locale } from '../types';
 import { getTranslation, LOCALE_NAMES } from '../services/i18n';
-import { HalftoneCircle } from './HalftoneCircle';
 import { Menu, X, Calendar, UserCheck } from 'lucide-react';
 
 interface HeaderProps {
@@ -55,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
           }}
           aria-label="Nirvana Massage Studio"
         >
-          <HalftoneCircle size={38} color="#8A7A68" />
+          <img src="/assets/nirvana-logo.jpg" alt="Nirvana Logo" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
           <div className="brand-lockup">
             <span className="brand-title">NIRVANA</span>
             <span className="brand-subtitle">MASSAGE STUDIO</span>
