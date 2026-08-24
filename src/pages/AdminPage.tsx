@@ -275,14 +275,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({
       <div className="container">
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <span className="badge badge-sage">{t('admin.title')}</span>
-            <h1 style={{ fontSize: '2.4rem', margin: '0.4rem 0 0' }}>
-              Practitioner Schedule &amp; Client Records
-            </h1>
-            <p style={{ margin: 0, fontSize: '0.94rem', color: 'var(--ink-light)' }}>
-              Solo Practitioner: Alina Heorhiieva • Physiotherapy &amp; Massage (Wrocław &amp; Private Travel)
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.1rem' }}>
+            <div className="profile-avatar-container">
+              <img
+                src={getPhoto('booking-avatar')}
+                alt="Alina Heorhiieva"
+                className="profile-avatar-img"
+              />
+            </div>
+            <div>
+              <span className="badge badge-sage">{t('admin.title')}</span>
+              <h1 style={{ fontSize: '2.4rem', margin: '0.4rem 0 0' }}>
+                Practitioner Schedule &amp; Client Records
+              </h1>
+              <p style={{ margin: 0, fontSize: '0.94rem', color: 'var(--ink-light)' }}>
+                Solo Practitioner: Alina Heorhiieva • Physiotherapy &amp; Massage (Wrocław &amp; Private Travel)
+              </p>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '0.8rem' }}>
@@ -315,49 +324,53 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '0.5rem',
-            borderBottom: '1px solid rgba(201, 190, 176, 0.4)',
-            marginBottom: '2rem',
-            overflowX: 'auto',
-            paddingBottom: '2px'
-          }}
-        >
-          {[
-            { id: 'calendar', label: t('admin.tab_calendar'), icon: <CalendarIcon size={16} /> },
-            { id: 'bookings', label: `${t('admin.tab_bookings')} (${bookings.length})`, icon: <List size={16} /> },
-            { id: 'intake', label: `${t('admin.tab_intake')} (${intakes.length})`, icon: <HeartPulse size={16} /> },
-            { id: 'notifications', label: `${t('admin.tab_notifications')} (${notifications.length})`, icon: <Mail size={16} /> },
-            { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={16} /> },
-            { id: 'photos', label: t('admin.tab_photos'), icon: <ImageIcon size={16} /> },
-            { id: 'settings', label: t('admin.tab_settings'), icon: <SettingsIcon size={16} /> }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.6rem',
-                padding: '0.8rem 1.4rem',
-                fontSize: '0.88rem',
-                fontWeight: 500,
-                color: activeTab === tab.id ? 'var(--ink)' : 'var(--ink-light)',
-                borderBottom: activeTab === tab.id ? '2px solid var(--taupe)' : '2px solid transparent',
-                borderRadius: 'var(--radius-sm) var(--radius-sm) 0 0',
-                background: activeTab === tab.id ? 'var(--white)' : 'transparent',
-                transition: 'all 0.2s ease',
-                whiteSpace: 'nowrap'
-              }}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Tab Navigation — desktop: all tabs in one wrapped row (no scrollbar);
+            tablet/mobile: compact dropdown selector */}
+        {(() => {
+          const adminTabs = [
+            { id: 'calendar', label: t('admin.tab_calendar'), icon: <CalendarIcon size={15} /> },
+            { id: 'bookings', label: `${t('admin.tab_bookings')} (${bookings.length})`, icon: <List size={15} /> },
+            { id: 'intake', label: `${t('admin.tab_intake')} (${intakes.length})`, icon: <HeartPulse size={15} /> },
+            { id: 'notifications', label: `${t('admin.tab_notifications')} (${notifications.length})`, icon: <Mail size={15} /> },
+            { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={15} /> },
+            { id: 'photos', label: t('admin.tab_photos'), icon: <ImageIcon size={15} /> },
+            { id: 'settings', label: t('admin.tab_settings'), icon: <SettingsIcon size={15} /> }
+          ];
+          return (
+            <>
+              <div className="admin-tabs">
+                {adminTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    className="admin-tab-btn"
+                    onClick={() => setActiveTab(tab.id as any)}
+                    style={{
+                      color: activeTab === tab.id ? 'var(--ink)' : 'var(--ink-light)',
+                      borderBottom: activeTab === tab.id ? '2px solid var(--taupe)' : '2px solid transparent',
+                      background: activeTab === tab.id ? 'var(--white)' : 'transparent'
+                    }}
+                  >
+                    {tab.icon}
+                    <span>{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <select
+                className="admin-tabs-select custom-input"
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as any)}
+                aria-label={t('admin.title')}
+              >
+                {adminTabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
+            </>
+          );
+        })()}
 
         {/* TAB 1: CALENDAR & BLOCKS */}
         {activeTab === 'calendar' && (
@@ -953,7 +966,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <h3 style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin.settings_title')}</h3>
             </div>
 
-            <form onSubmit={handleSaveSettings} style={{ maxWidth: '480px', marginTop: '1.5rem' }}>
+            <form onSubmit={handleSaveSettings} className="admin-settings-form">
               <div className="form-group">
                 <label className="form-label" htmlFor="practitioner-email">
                   {t('admin.settings_email_label')}
@@ -981,24 +994,26 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   {t('admin.settings_contact_desc')}
                 </p>
 
-                {CONTENT_SLOTS.map((slot) => (
-                  <div className="form-group" key={slot.key}>
-                    <label className="form-label" htmlFor={`content-${slot.key}`}>
-                      {t(`admin.content_${slot.key}`)}
-                    </label>
-                    <input
-                      id={`content-${slot.key}`}
-                      type="text"
-                      className="custom-input"
-                      required
-                      value={contactInfo[slot.key] ?? ''}
-                      onChange={(e) => {
-                        setContactInfo({ ...contactInfo, [slot.key]: e.target.value });
-                        setSettingsMsg('idle');
-                      }}
-                    />
-                  </div>
-                ))}
+                <div className="admin-settings-grid">
+                  {CONTENT_SLOTS.map((slot) => (
+                    <div className="form-group" key={slot.key}>
+                      <label className="form-label" htmlFor={`content-${slot.key}`}>
+                        {t(`admin.content_${slot.key}`)}
+                      </label>
+                      <input
+                        id={`content-${slot.key}`}
+                        type="text"
+                        className="custom-input"
+                        required
+                        value={contactInfo[slot.key] ?? ''}
+                        onChange={(e) => {
+                          setContactInfo({ ...contactInfo, [slot.key]: e.target.value });
+                          setSettingsMsg('idle');
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.2rem' }}>
