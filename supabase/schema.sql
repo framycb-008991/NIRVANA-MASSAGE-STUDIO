@@ -132,6 +132,30 @@ values ('practitioner_email', 'heorhiievaalina@gmail.com')
 on conflict (key) do nothing;
 
 -- ----------------------------------------------------------------------------
+-- photo_slots — practitioner-uploaded replacements for the site's photo slots.
+-- One row per overridden slot; slots without a row fall back to the bundled
+-- /assets/* default on the frontend.
+-- ----------------------------------------------------------------------------
+create table if not exists public.photo_slots (
+  slot_id      text primary key,
+  storage_path text not null,             -- object path inside the site-photos bucket
+  alt_text     text,
+  updated_at   timestamptz not null default now()
+);
+
+comment on table public.photo_slots is
+  'Maps photo slot ids to practitioner-uploaded images in Supabase Storage.';
+
+-- ----------------------------------------------------------------------------
+-- Storage bucket for uploaded photos (run once; safe to re-run).
+-- Public read (images render on the public site), writes only via the
+-- service-role key used by the API routes.
+-- ----------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('site-photos', 'site-photos', true)
+on conflict (id) do nothing;
+
+-- ----------------------------------------------------------------------------
 -- Row Level Security
 -- ----------------------------------------------------------------------------
 -- RLS is ENABLED on every table and NO anon/authenticated policies are
@@ -143,3 +167,4 @@ alter table public.working_hours  enable row level security;
 alter table public.date_overrides enable row level security;
 alter table public.bookings       enable row level security;
 alter table public.settings       enable row level security;
+alter table public.photo_slots    enable row level security;

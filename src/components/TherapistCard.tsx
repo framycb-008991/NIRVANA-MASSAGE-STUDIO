@@ -1,6 +1,8 @@
 import React from 'react';
 import { Locale } from '../types';
 import { getTranslation } from '../services/i18n';
+import { usePhotos } from '../hooks/usePhotos';
+import { useContent } from '../hooks/useContent';
 import { HalftoneCircle } from './HalftoneCircle';
 import { InstagramIcon } from './InstagramIcon';
 import { DynamicPhotoShowcase } from './DynamicPhotoShowcase';
@@ -16,6 +18,8 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
   onBookClick
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { photo } = usePhotos();
+  const { content } = useContent();
 
   const skills = [
     'Therapeutic, Sports & Relaxation Massage',
@@ -58,25 +62,25 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           <DynamicPhotoShowcase
             slides={[
               {
-                src: '/assets/alina-portrait-back.jpg',
+                src: photo('therapist-card-1'),
                 alt: 'Alina Heorhiieva performing therapeutic back massage',
                 badge: 'Alina Heorhiieva • 7+ Years Experience',
                 caption: 'Alina Heorhiieva — Physiotherapy & Massage Specialist'
               },
               {
-                src: '/assets/alina-stretching-leg.jpg',
+                src: photo('therapist-card-2'),
                 alt: 'Alina performing assisted leg stretching and physical therapy',
                 badge: 'Stretching & Rehabilitacja',
                 caption: 'Assisted Stretching & Musculoskeletal Mobilization'
               },
               {
-                src: '/assets/treatment-blade-iastm.jpg',
+                src: photo('therapist-card-3'),
                 alt: 'Alina with Kashalot Blade for myofascial scraping and sports recovery',
                 badge: 'IASTM Myofascial Therapy',
                 caption: 'IASTM Kashalot Blade — Precision Fascial Release'
               },
               {
-                src: '/assets/treatment-cupping.jpg',
+                src: photo('therapist-card-4'),
                 alt: 'Vacuum cupping therapy along back and shoulders',
                 badge: 'Bańki Chińskie & Drenaż',
                 caption: 'Vacuum Cupping Therapy — Circulatory Detox'
@@ -89,7 +93,7 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
           {/* Social and Location Badges below photo */}
           <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
             <a
-              href="https://www.instagram.com/nirvana_massage.studio/"
+              href={`https://www.instagram.com/${content('instagram_handle').replace(/^@/, '')}/`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn btn-outline"
@@ -104,11 +108,11 @@ export const TherapistCard: React.FC<TherapistCardProps> = ({
               }}
             >
               <InstagramIcon size={16} color="currentColor" />
-              <span>@nirvana_massage.studio</span>
+              <span>{content('instagram_handle')}</span>
             </a>
 
             <div style={{ padding: '0.8rem 1rem', backgroundColor: 'var(--mist)', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem', color: 'var(--ink-light)', border: '1px solid rgba(201,190,176,0.3)' }}>
-              <strong>Studio Wrocław:</strong> ul. Przedmiejska 2/02, 54-201 Wrocław
+              <strong>Studio Wrocław:</strong> {content('contact_address')}
             </div>
           </div>
         </div>

@@ -14,7 +14,13 @@ import {
 } from '../services/storage';
 import { sendCancellationNotification } from '../services/notifications';
 import { getPractitionerEmail, setPractitionerEmail } from '../services/settings';
+import { getAdminToken, clearAdminToken } from '../services/auth';
+import { PHOTO_SLOTS, getPhoto, uploadPhoto, resetPhoto, getPhotoOverrideMap } from '../services/photos';
+import { CONTENT_SLOTS, getContent, setContentOverrides } from '../services/content';
+import { getWorkingHours, setWorkingHours, WorkingDay } from '../services/hours';
 import { useAdminSchedule } from '../hooks/useAdminSchedule';
+import { usePhotos } from '../hooks/usePhotos';
+import { AdminLogin } from '../components/AdminLogin';
 import { NotificationDrawer } from '../components/NotificationDrawer';
 import {
   Calendar as CalendarIcon,
@@ -23,6 +29,8 @@ import {
   Mail,
   BarChart3,
   Settings as SettingsIcon,
+  Image as ImageIcon,
+  LogOut,
   Plus,
   Trash2,
   CheckCircle2,
@@ -30,7 +38,8 @@ import {
   Search,
   MapPin,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Upload
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -42,7 +51,10 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
 
-  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics' | 'settings'>('calendar');
+  // Auth gate — the panel renders only with a valid admin session token
+  const [authed, setAuthed] = useState<boolean>(() => getAdminToken() !== null);
+
+  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics' | 'settings' | 'photos'>('calendar');
 
   // Data state
   const [bookings, setBookings] = useState<Booking[]>(getBookings());
@@ -66,19 +78,26 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // Notification Drawer
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
 
-  // Studio Settings (practitioner notification email)
+  // Studio Settings (practitioner notification email + editable site content)
   const adminSchedule = useAdminSchedule();
   const [practitionerEmail, setPractitionerEmailState] = useState(getPractitionerEmail());
+  const [contactInfo, setContactInfo] = useState<Record<string, string>>(() =>
+    Object.fromEntries(CONTENT_SLOTS.map((s) => [s.key, getContent(s.key)]))
+  );
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<'idle' | 'saved' | 'error'>('idle');
 
-  // Load the email persisted in the backend (falls back to local mirror)
+  // Load the settings persisted in the backend (falls back to local mirror)
   useEffect(() => {
     adminSchedule.getSettings()
       .then((s) => {
         if (s?.practitionerEmail) {
           setPractitionerEmailState(s.practitionerEmail);
           setPractitionerEmail(s.practitionerEmail);
+        }
+        if (s?.content) {
+          setContactInfo((prev) => ({ ...prev, ...s.content }));
+          setContentOverrides(s.content);
         }
       })
       .catch(() => {
@@ -94,14 +113,93 @@ export const AdminPage: React.FC<AdminPageProps> = ({
     try {
       // Persist to Supabase via the serverless API when available
       await adminSchedule.updatePractitionerEmail(practitionerEmail);
+      await adminSchedule.updateContent(contactInfo);
     } catch {
       // Backend not deployed/reachable yet — local mirror still applies
     }
     // Always keep the local mirror in sync so dev-mode notifications use it
     setPractitionerEmail(practitionerEmail);
+    setContentOverrides(contactInfo);
     setSettingsSaving(false);
     setSettingsMsg('saved');
   };
+
+  // Photo slot management
+  const { refresh: refreshPhotos } = usePhotos();
+  const [photoOverrides, setPhotoOverrides] = useState<Record<string, string>>(getPhotoOverrideMap());
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null); // slot currently uploading
+  const [photoMsg, setPhotoMsg] = useState<{ slot: string; kind: 'ok' | 'err' } | null>(null);
+
+  const handlePhotoUpload = async (slot: string, file: File | undefined) => {
+    if (!file) return;
+    setPhotoBusy(slot);
+    setPhotoMsg(null);
+    try {
+      await uploadPhoto(slot, file);
+      setPhotoOverrides(getPhotoOverrideMap());
+      await refreshPhotos();
+      setPhotoMsg({ slot, kind: 'ok' });
+    } catch {
+      setPhotoMsg({ slot, kind: 'err' });
+    }
+    setPhotoBusy(null);
+  };
+
+  const handlePhotoReset = async (slot: string) => {
+    setPhotoBusy(slot);
+    setPhotoMsg(null);
+    await resetPhoto(slot);
+    setPhotoOverrides(getPhotoOverrideMap());
+    await refreshPhotos();
+    setPhotoBusy(null);
+  };
+
+  const handleLogout = () => {
+    clearAdminToken();
+    setAuthed(false);
+  };
+
+  // Weekly studio hours editor
+  const [weeklyHours, setWeeklyHoursState] = useState<WorkingDay[]>(getWorkingHours());
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursMsg, setHoursMsg] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  const weekDayName = (dayOfWeek: number) =>
+    new Intl.DateTimeFormat(
+      currentLocale === 'uk' ? 'uk-UA' : currentLocale === 'pl' ? 'pl-PL' : 'en-GB',
+      { weekday: 'long' }
+    ).format(new Date(2024, 0, 7 + dayOfWeek));
+
+  const updateDay = (dayOfWeek: number, patch: Partial<WorkingDay>) => {
+    setWeeklyHoursState((prev) =>
+      prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, ...patch } : d))
+    );
+    setHoursMsg('idle');
+  };
+
+  const handleSaveHours = async () => {
+    setHoursSaving(true);
+    setHoursMsg('idle');
+    try {
+      await adminSchedule.setWeeklyHours(weeklyHours);
+      setWorkingHours(weeklyHours);
+      setHoursMsg('saved');
+    } catch (err) {
+      if (err instanceof TypeError) {
+        // Network failure (backend not deployed) — keep the local mirror
+        setWorkingHours(weeklyHours);
+        setHoursMsg('saved');
+      } else {
+        setHoursMsg('error');
+      }
+    }
+    setHoursSaving(false);
+  };
+
+  // ---- Auth gate -----------------------------------------------------------
+  if (!authed) {
+    return <AdminLogin currentLocale={currentLocale} onSuccess={() => setAuthed(true)} />;
+  }
 
   const refreshData = () => {
     setBookings(getBookings());
@@ -203,6 +301,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
               <Plus size={16} />
               <span>{t('admin.block_time_btn')}</span>
             </button>
+
+            <button
+              className="btn btn-ghost"
+              onClick={handleLogout}
+              title={t('admin.logout')}
+            >
+              <LogOut size={16} />
+              <span>{t('admin.logout')}</span>
+            </button>
           </div>
         </div>
 
@@ -223,6 +330,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             { id: 'intake', label: `${t('admin.tab_intake')} (${intakes.length})`, icon: <HeartPulse size={16} /> },
             { id: 'notifications', label: `${t('admin.tab_notifications')} (${notifications.length})`, icon: <Mail size={16} /> },
             { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={16} /> },
+            { id: 'photos', label: t('admin.tab_photos'), icon: <ImageIcon size={16} /> },
             { id: 'settings', label: t('admin.tab_settings'), icon: <SettingsIcon size={16} /> }
           ].map((tab) => (
             <button
@@ -368,6 +476,89 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                       </button>
                     </div>
                   ))
+                )}
+              </div>
+            </div>
+
+            {/* Weekly Studio Hours Editor */}
+            <div style={{ backgroundColor: 'var(--white)', padding: '2rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)', gridColumn: '1 / -1' }}>
+              <h3 style={{ fontSize: '1.4rem', marginBottom: '0.3rem' }}>{t('admin.hours_title')}</h3>
+              <p style={{ fontSize: '0.88rem', color: 'var(--ink-light)', marginBottom: '1.5rem' }}>
+                {t('admin.hours_desc')}
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                {[...weeklyHours]
+                  .sort((a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7))
+                  .map((day) => (
+                    <div
+                      key={day.dayOfWeek}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        flexWrap: 'wrap',
+                        padding: '0.7rem 1rem',
+                        backgroundColor: 'var(--mist)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid rgba(201,190,176,0.3)'
+                      }}
+                    >
+                      <span style={{ minWidth: '110px', fontWeight: 500, fontSize: '0.92rem', color: 'var(--ink)', textTransform: 'capitalize' }}>
+                        {weekDayName(day.dayOfWeek)}
+                      </span>
+
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.84rem', color: 'var(--ink-light)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={!day.isWorking}
+                          onChange={(e) => updateDay(day.dayOfWeek, { isWorking: !e.target.checked })}
+                          style={{ width: '16px', height: '16px', accentColor: 'var(--taupe)' }}
+                        />
+                        {t('admin.hours_day_off')}
+                      </label>
+
+                      {day.isWorking && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <input
+                            type="time"
+                            className="custom-input"
+                            style={{ padding: '0.35rem 0.6rem', width: 'auto' }}
+                            value={day.startTime}
+                            onChange={(e) => updateDay(day.dayOfWeek, { startTime: e.target.value })}
+                          />
+                          <span style={{ color: 'var(--ink-muted)' }}>–</span>
+                          <input
+                            type="time"
+                            className="custom-input"
+                            style={{ padding: '0.35rem 0.6rem', width: 'auto' }}
+                            value={day.endTime}
+                            onChange={(e) => updateDay(day.dayOfWeek, { endTime: e.target.value })}
+                          />
+                        </span>
+                      )}
+                    </div>
+                  ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.4rem' }}>
+                <button
+                  className="btn btn-primary"
+                  disabled={hoursSaving}
+                  onClick={() => void handleSaveHours()}
+                >
+                  {t('admin.hours_save')}
+                </button>
+                {hoursMsg === 'saved' && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#557A55', fontSize: '0.88rem', fontWeight: 500 }}>
+                    <CheckCircle2 size={16} />
+                    {t('admin.hours_saved')}
+                  </span>
+                )}
+                {hoursMsg === 'error' && (
+                  <span style={{ color: '#B25E5E', fontSize: '0.88rem' }}>
+                    {t('admin.hours_error')}
+                  </span>
                 )}
               </div>
             </div>
@@ -665,7 +856,94 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           </div>
         )}
 
-        {/* TAB 6: STUDIO SETTINGS */}
+        {/* TAB 6: WEBSITE PHOTOS */}
+        {activeTab === 'photos' && (
+          <div style={{ backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+              <ImageIcon size={20} color="#8A7A68" />
+              <h3 style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin.photos_title')}</h3>
+            </div>
+            <p style={{ fontSize: '0.9rem', color: 'var(--ink-light)', marginBottom: '2rem' }}>
+              {t('admin.photos_desc')}
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: '1.5rem' }}>
+              {PHOTO_SLOTS.map((def) => {
+                const isCustom = Boolean(photoOverrides[def.slot]);
+                const busy = photoBusy === def.slot;
+                return (
+                  <div
+                    key={def.slot}
+                    style={{
+                      border: '1px solid rgba(201,190,176,0.4)',
+                      borderRadius: 'var(--radius-md)',
+                      overflow: 'hidden',
+                      backgroundColor: 'var(--mist)',
+                      display: 'flex',
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <div style={{ aspectRatio: '4/3', overflow: 'hidden', backgroundColor: 'var(--sage-wash)' }}>
+                      <img
+                        src={getPhoto(def.slot)}
+                        alt={def.label}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: busy ? 0.5 : 1 }}
+                      />
+                    </div>
+
+                    <div style={{ padding: '0.9rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink)' }}>{def.label}</span>
+                        <span className={`badge ${isCustom ? 'badge-sage' : 'badge-taupe'}`} style={{ fontSize: '0.62rem', flexShrink: 0 }}>
+                          {isCustom ? t('admin.photo_custom') : t('admin.photo_default')}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <label
+                          className="btn btn-outline"
+                          style={{ padding: '0.35rem 0.7rem', fontSize: '0.72rem', cursor: busy ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                        >
+                          <Upload size={13} />
+                          <span>{busy ? t('admin.photo_uploading') : t('admin.photo_upload')}</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            style={{ display: 'none' }}
+                            disabled={busy}
+                            onChange={(e) => {
+                              void handlePhotoUpload(def.slot, e.target.files?.[0]);
+                              e.target.value = '';
+                            }}
+                          />
+                        </label>
+
+                        {isCustom && (
+                          <button
+                            className="btn btn-ghost"
+                            style={{ padding: '0.35rem 0.6rem', fontSize: '0.72rem', color: '#B25E5E' }}
+                            disabled={busy}
+                            onClick={() => void handlePhotoReset(def.slot)}
+                          >
+                            {t('admin.photo_reset')}
+                          </button>
+                        )}
+                      </div>
+
+                      {photoMsg?.slot === def.slot && (
+                        <span style={{ fontSize: '0.74rem', color: photoMsg.kind === 'ok' ? '#557A55' : '#B25E5E' }}>
+                          {photoMsg.kind === 'ok' ? t('admin.photo_updated') : t('admin.photo_error')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: STUDIO SETTINGS */}
         {activeTab === 'settings' && (
           <div style={{ backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
@@ -692,6 +970,33 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                     setSettingsMsg('idle');
                   }}
                 />
+              </div>
+
+              {/* Editable public contact information */}
+              <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(201,190,176,0.3)' }}>
+                <h4 style={{ fontSize: '1.15rem', margin: '0 0 0.3rem' }}>{t('admin.settings_contact_title')}</h4>
+                <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', margin: '0 0 1.2rem' }}>
+                  {t('admin.settings_contact_desc')}
+                </p>
+
+                {CONTENT_SLOTS.map((slot) => (
+                  <div className="form-group" key={slot.key}>
+                    <label className="form-label" htmlFor={`content-${slot.key}`}>
+                      {t(`admin.content_${slot.key}`)}
+                    </label>
+                    <input
+                      id={`content-${slot.key}`}
+                      type="text"
+                      className="custom-input"
+                      required
+                      value={contactInfo[slot.key] ?? ''}
+                      onChange={(e) => {
+                        setContactInfo({ ...contactInfo, [slot.key]: e.target.value });
+                        setSettingsMsg('idle');
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.2rem' }}>

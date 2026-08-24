@@ -1,8 +1,9 @@
 /**
  * POST /api/admin/set-hours
  *
- * Admin endpoint for managing the studio schedule. Protected by a shared
- * secret: the `x-admin-key` header must equal the ADMIN_API_KEY env var.
+ * Admin endpoint for managing the studio schedule. Protected by admin auth:
+ * an `Authorization: Bearer <session-token>` header (see /api/admin/login)
+ * or the legacy `x-admin-key` shared-secret header.
  *
  * Body variants:
  *   { type: "weekly", hours: [{ dayOfWeek, isWorking, startTime, endTime,
@@ -24,13 +25,7 @@
 
 import { getSupabase } from '../_lib/supabase.js';
 import { isValidDateString, isValidTimeString } from '../_lib/availabilityCore.js';
-
-/** Constant-shape admin key check (401 on mismatch or missing env config). */
-function isAuthorized(req) {
-  const expected = process.env.ADMIN_API_KEY;
-  if (!expected) return false; // safer to lock the endpoint than to leave it open
-  return req.headers['x-admin-key'] === expected;
-}
+import { verifyAdminRequest } from '../_lib/auth.js';
 
 /** Validates and normalizes one weekly-hours entry. Returns error string or row. */
 function parseWeeklyHoursEntry(entry) {
@@ -88,7 +83,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  if (!isAuthorized(req)) {
+  if (!verifyAdminRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
 

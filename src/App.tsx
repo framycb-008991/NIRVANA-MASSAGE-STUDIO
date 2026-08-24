@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Locale } from './types';
 import { detectInitialLocale, setPersistedLocale } from './services/i18n';
 import { updatePageSEO } from './services/seo';
+import { fetchWorkingHours } from './services/hours';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { CookieBanner } from './components/CookieBanner';
@@ -58,6 +59,11 @@ export const App: React.FC = () => {
   useEffect(() => {
     updatePageSEO(activePage, currentLocale);
   }, [activePage, currentLocale]);
+
+  // Refresh admin-editable working hours from the backend once per session
+  useEffect(() => {
+    void fetchWorkingHours();
+  }, []);
 
   // Handle browser back/forward buttons
   useEffect(() => {

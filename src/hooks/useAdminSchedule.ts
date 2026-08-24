@@ -1,13 +1,17 @@
 /**
  * useAdminSchedule — typed wrappers around the admin schedule/settings API.
  *
- * Every request carries the shared-secret `x-admin-key` header taken from
- * `import.meta.env.VITE_ADMIN_API_KEY` (define it in `.env.local` for dev and
- * in the Vercel project settings for production).
+ * Every request carries the admin session token (`Authorization: Bearer`,
+ * issued by /api/admin/login) plus the legacy shared-secret `x-admin-key`
+ * header taken from `import.meta.env.VITE_ADMIN_API_KEY` as a fallback
+ * (define it in `.env.local` for dev and in the Vercel project settings for
+ * production).
  *
  * All wrappers return the parsed JSON body on success and throw an Error with
  * the server's message on any non-2xx response.
  */
+
+import { getAdminToken } from '../services/auth';
 
 /** One weekday of the weekly schedule (0 = Sunday .. 6 = Saturday). */
 export interface WeeklyHoursInput {
@@ -30,6 +34,8 @@ export interface DateOverrideInput {
 
 export interface AdminSettings {
   practitionerEmail: string;
+  /** Editable site-content slots (contact phone/email/address, Instagram). */
+  content: Record<string, string>;
 }
 
 export interface UseAdminScheduleResult {
@@ -38,6 +44,7 @@ export interface UseAdminScheduleResult {
   deleteDateOverride: (date: string) => Promise<{ ok: true }>;
   getSettings: () => Promise<AdminSettings>;
   updatePractitionerEmail: (email: string) => Promise<AdminSettings>;
+  updateContent: (content: Record<string, string>) => Promise<AdminSettings>;
 }
 
 /** Reads the admin key without requiring vite/client ambient types. */
@@ -51,15 +58,17 @@ interface ErrorPayload {
 }
 
 /**
- * Shared fetch helper: attaches JSON + admin-key headers, parses the body,
+ * Shared fetch helper: attaches JSON + auth headers, parses the body,
  * and throws on non-2xx with the server's error message when available.
  */
 async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getAdminToken();
   const res = await fetch(path, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       'x-admin-key': getAdminKey(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
   });
@@ -98,5 +107,11 @@ export function useAdminSchedule(): UseAdminScheduleResult {
       body: JSON.stringify({ practitionerEmail: email }),
     });
 
-  return { setWeeklyHours, setDateOverride, deleteDateOverride, getSettings, updatePractitionerEmail };
+  const updateContent = (content: Record<string, string>) =>
+    adminFetch<AdminSettings>('/api/admin/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    });
+
+  return { setWeeklyHours, setDateOverride, deleteDateOverride, getSettings, updatePractitionerEmail, updateContent };
 }

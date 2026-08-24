@@ -1,6 +1,7 @@
 import React from 'react';
 import { Locale } from '../types';
 import { getTranslation, LOCALE_NAMES } from '../services/i18n';
+import { useContent } from '../hooks/useContent';
 import { HalftoneCircle } from './HalftoneCircle';
 import { InstagramIcon } from './InstagramIcon';
 import { MapPin, Phone, Mail, ShieldCheck } from 'lucide-react';
@@ -19,6 +20,7 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenCookieSettings
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { content } = useContent();
 
   return (
     <footer className="site-footer" role="contentinfo">
@@ -99,19 +101,19 @@ export const Footer: React.FC<FooterProps> = ({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', fontSize: '0.88rem', color: 'var(--mist-darker)' }}>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
                 <MapPin size={16} color="#C9BEB0" style={{ flexShrink: 0, marginTop: '4px' }} />
-                <span>{t('contact.address_val')}</span>
+                <span>{content('contact_address')}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
                 <Phone size={16} color="#C9BEB0" style={{ flexShrink: 0, marginTop: '4px' }} />
-                <span>{t('contact.phone_val')}</span>
+                <span>{content('contact_phone')}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem' }}>
                 <Mail size={16} color="#C9BEB0" style={{ flexShrink: 0, marginTop: '4px' }} />
-                <span>{t('contact.email_val')}</span>
+                <span>{content('contact_email')}</span>
               </div>
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', marginTop: '0.4rem' }}>
                 <a
-                  href="https://www.instagram.com/nirvana_massage.studio/"
+                  href={`https://www.instagram.com/${content('instagram_handle').replace(/^@/, '')}/`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
@@ -127,7 +129,7 @@ export const Footer: React.FC<FooterProps> = ({
                   }}
                 >
                   <InstagramIcon size={14} color="#C9BEB0" />
-                  <span>@nirvana_massage.studio</span>
+                  <span>{content('instagram_handle')}</span>
                 </a>
               </div>
             </div>

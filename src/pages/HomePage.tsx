@@ -2,6 +2,7 @@ import React from 'react';
 import { Locale } from '../types';
 import { getTranslation, formatCurrency } from '../services/i18n';
 import { TREATMENTS } from '../services/storage';
+import { usePhotos } from '../hooks/usePhotos';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import { DynamicPhotoShowcase, PhotoSlide } from '../components/DynamicPhotoShowcase';
 import { TherapistCard } from '../components/TherapistCard';
@@ -19,36 +20,37 @@ export const HomePage: React.FC<HomePageProps> = ({
   onSelectTreatmentForBooking
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { photo } = usePhotos();
 
   const featuredTreatments = TREATMENTS.filter(t => t.featured);
 
   const heroSlides: PhotoSlide[] = [
     {
-      src: '/assets/alina-portrait-back.jpg',
+      src: photo('home-hero-1'),
       alt: 'Alina Heorhiieva performing therapeutic back massage at Nirvana Studio Wrocław',
       badge: 'Alina Heorhiieva • 7+ Years Experience',
       caption: 'Alina Heorhiieva — Physiotherapist & Massage Specialist'
     },
     {
-      src: '/assets/alina-stretching-leg.jpg',
+      src: photo('home-hero-2'),
       alt: 'Alina performing assisted stretching and joint mobility therapy',
       badge: 'Masaż stretchingowy & Mobility',
       caption: 'Assisted Stretching & Musculoskeletal Rehabilitation'
     },
     {
-      src: '/assets/treatment-blade-iastm.jpg',
+      src: photo('home-hero-3'),
       alt: 'Specialized IASTM Kashalot Blade for myofascial scraping and sports recovery',
       badge: 'IASTM Myofascial Therapy',
       caption: 'Precision Fascial Scraping & Muscle Decompression'
     },
     {
-      src: '/assets/treatment-cupping.jpg',
+      src: photo('home-hero-4'),
       alt: 'Vacuum cupping therapy along client back and shoulders',
       badge: 'Bańki Chińskie & Drenaż',
       caption: 'Vacuum Cupping Therapy & Deep Circulation'
     },
     {
-      src: '/assets/hero.jpg',
+      src: photo('home-hero-5'),
       alt: 'Nirvana Massage Studio sanctuary with serene treatment table and natural light',
       badge: 'Wrocław Studio Sanctuary',
       caption: 'Nirvana Massage Studio • ul. Przedmiejska 2/02'
@@ -204,7 +206,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                   <div>
                     <div style={{ position: 'relative', height: '170px', borderRadius: 'var(--radius-md)', overflow: 'hidden', marginBottom: '1.2rem', backgroundColor: 'var(--mist)' }}>
                       <img
-                        src={treatment.image}
+                        src={photo(`treatment-${treatment.id}`)}
                         alt={t(treatment.nameKey)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.4s ease' }}
                         loading="lazy"

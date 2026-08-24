@@ -1,6 +1,7 @@
 import React from 'react';
 import { Locale } from '../types';
 import { getTranslation } from '../services/i18n';
+import { usePhotos } from '../hooks/usePhotos';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import { TherapistCard } from '../components/TherapistCard';
 import { Feather, Heart, Sun } from 'lucide-react';
@@ -15,6 +16,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({
   onNavigate
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { photo } = usePhotos();
 
   const journeySteps = [
     {
@@ -114,25 +116,25 @@ export const AboutPage: React.FC<AboutPageProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '1.5rem' }}>
             {[
               {
-                src: '/assets/alina-portrait-back.jpg',
+                src: photo('about-gallery-1'),
                 title: 'Alina Heorhiieva',
                 sub: 'Physiotherapy & Somatic Bodywork',
                 desc: 'Individualized rehabilitation and gentle therapeutic back massage in calm natural light.'
               },
               {
-                src: '/assets/alina-stretching-leg.jpg',
+                src: photo('about-gallery-2'),
                 title: 'Masaż Stretchingowy & Mobilność',
                 sub: 'Assisted Musculoskeletal Stretching',
                 desc: 'Restoring joint range of motion and relieving chronic lower extremity tension.'
               },
               {
-                src: '/assets/treatment-blade-iastm.jpg',
+                src: photo('about-gallery-3'),
                 title: 'IASTM Kashalot Blade',
                 sub: 'Myofascial Scraping & Sports Rehab',
                 desc: 'Specialized stainless steel instrument for fascial adhesions and athletic recovery.'
               },
               {
-                src: '/assets/treatment-cupping.jpg',
+                src: photo('about-gallery-4'),
                 title: 'Bańki Chińskie & Drenaż',
                 sub: 'Vacuum Cupping Detox',
                 desc: 'Stimulating deep blood flow, microcirculation, and lymphatic drainage along the spine.'

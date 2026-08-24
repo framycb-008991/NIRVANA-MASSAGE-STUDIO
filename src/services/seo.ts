@@ -1,4 +1,5 @@
 import { Locale } from '../types';
+import { getContent } from './content';
 
 export function updatePageSEO(page: string, locale: Locale): void {
   if (typeof document === 'undefined') return;
@@ -122,10 +123,10 @@ export function updatePageSEO(page: string, locale: Locale): void {
         description: 'A calm, timeless solo-practitioner physiotherapy and massage studio in Wrocław, Poland.',
         slogan: 'From tension to tranquility.',
         url: 'https://nirvanamassage.pl',
-        telephone: '+48 731 920 280',
-        email: 'contact@nirvanamassage.pl',
+        telephone: getContent('contact_phone'),
+        email: getContent('contact_email'),
         sameAs: [
-          'https://www.instagram.com/nirvana_massage.studio/',
+          `https://www.instagram.com/${getContent('instagram_handle').replace(/^@/, '')}/`,
           'https://nirvana-massage-studio.easyweek.pl?ref=instagram'
         ],
         priceRange: '180 PLN - 380 PLN',

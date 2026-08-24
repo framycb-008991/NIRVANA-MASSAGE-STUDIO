@@ -1,16 +1,6 @@
 import { TimeSlot, Booking } from '../types';
 import { getBookings, getBlockedPeriods } from './storage';
-
-// Weekly studio schedule (24h). Key: JS Date.getDay() — 0 = Sunday ... 6 = Saturday
-export const WEEKLY_HOURS: Record<number, { open: string; close: string }> = {
-  0: { open: '09:00', close: '21:00' }, // Sunday
-  1: { open: '08:00', close: '14:00' }, // Monday
-  2: { open: '14:30', close: '22:00' }, // Tuesday
-  3: { open: '14:30', close: '22:00' }, // Wednesday
-  4: { open: '14:30', close: '22:00' }, // Thursday
-  5: { open: '08:00', close: '14:00' }, // Friday
-  6: { open: '09:00', close: '21:00' }  // Saturday
-};
+import { getWorkingDay } from './hours';
 
 export const SLOT_INCREMENT_MINUTES = 90;
 export const BUFFER_MINUTES = 30; // 30-min buffer between sessions
@@ -28,19 +18,21 @@ function minutesToTime(minutes: number): string {
 
 /**
  * Generate bookable start times for a given date so that
- * start + duration fits within that weekday's studio hours.
+ * start + duration fits within that weekday's studio hours
+ * (admin-editable via the working_hours service).
  */
 export function getSlotsForDate(dateStr: string, durationMinutes: number): string[] {
   const [year, month, day] = dateStr.split('-').map(Number);
   const weekday = new Date(year, month - 1, day).getDay();
-  const hours = WEEKLY_HOURS[weekday];
-  if (!hours) return [];
+  const hours = getWorkingDay(weekday);
+  if (!hours || !hours.isWorking) return [];
 
-  const open = timeToMinutes(hours.open);
-  const close = timeToMinutes(hours.close);
+  const open = timeToMinutes(hours.startTime);
+  const close = timeToMinutes(hours.endTime);
+  const increment = hours.slotIncrementMinutes ?? SLOT_INCREMENT_MINUTES;
 
   const slots: string[] = [];
-  for (let t = open; t + durationMinutes <= close; t += SLOT_INCREMENT_MINUTES) {
+  for (let t = open; t + durationMinutes <= close; t += increment) {
     slots.push(minutesToTime(t));
   }
   return slots;

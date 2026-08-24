@@ -1,35 +1,76 @@
 /**
- * GET /api/admin/settings          -> { practitionerEmail: string }
- * PUT /api/admin/settings  { practitionerEmail: string } -> { practitionerEmail: string }
+ * GET /api/admin/settings
+ *   -> { practitionerEmail: string, content: { [key]: string } }
  *
- * Admin-only settings endpoint. Both methods are protected by the shared
- * secret: the `x-admin-key` header must equal the ADMIN_API_KEY env var.
+ * PUT /api/admin/settings
+ *   body: { practitionerEmail?: string, content?: { [key]: string } }
+ *   -> same shape as GET (after upserting)
+ *
+ * Admin-only settings endpoint. Manages every editable site-content slot
+ * (contact phone/email/address, Instagram handle) plus the practitioner
+ * notification email. Protected by admin auth: an
+ * `Authorization: Bearer <session-token>` header (see /api/admin/login)
+ * or the legacy `x-admin-key` shared-secret header.
  *
  * Responses:
- *   200 { practitionerEmail: string }
- *   400 { error: string } — invalid email on PUT
- *   401 { error: string } — missing/wrong admin key
+ *   200 { practitionerEmail, content }
+ *   400 { error: string } — invalid key/value on PUT
+ *   401 { error: string } — missing/wrong credentials
  *   405 { error: string } — unsupported method
  *   500 { error: string } — unexpected server/DB failure
  */
 
 import { getSupabase } from '../_lib/supabase.js';
+import { verifyAdminRequest } from '../_lib/auth.js';
+import { CONTENT_SLOTS, isContentKey, getContentDefault } from '../_lib/contentSlots.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const SETTINGS_KEY = 'practitioner_email';
-const DEFAULT_PRACTITIONER_EMAIL = 'heorhiievaalina@gmail.com';
+const MAX_VALUE_LENGTH = 300;
 
-/** Constant-shape admin key check (401 on mismatch or missing env config). */
-function isAuthorized(req) {
-  const expected = process.env.ADMIN_API_KEY;
-  if (!expected) return false;
-  return req.headers['x-admin-key'] === expected;
+/** Slots whose value must be a valid email address. */
+const EMAIL_KEYS = new Set(['practitioner_email', 'contact_email']);
+
+/** Reads all slots from the DB and returns them merged over the defaults. */
+async function loadAllSettings(supabase) {
+  const { data, error } = await supabase.from('settings').select('key, value');
+  if (error) throw error;
+
+  const overrides = new Map((data || []).map((row) => [row.key, row.value]));
+
+  const content = {};
+  for (const slot of CONTENT_SLOTS) {
+    if (slot.key === 'practitioner_email') continue;
+    content[slot.key] = overrides.get(slot.key) || getContentDefault(slot.key);
+  }
+
+  return {
+    practitionerEmail:
+      overrides.get('practitioner_email') ||
+      process.env.PRACTITIONER_EMAIL ||
+      getContentDefault('practitioner_email'),
+    content,
+  };
+}
+
+/** Validates one content entry. Returns an error string or null. */
+function validateContentEntry(key, value) {
+  if (!isContentKey(key)) return `Unknown settings key: ${key}`;
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return `Value for ${key} must be a non-empty string.`;
+  }
+  if (value.length > MAX_VALUE_LENGTH) {
+    return `Value for ${key} is too long (max ${MAX_VALUE_LENGTH} characters).`;
+  }
+  if (EMAIL_KEYS.has(key) && !EMAIL_PATTERN.test(value.trim())) {
+    return `Value for ${key} must be a valid email address.`;
+  }
+  return null;
 }
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
 
-  if (!isAuthorized(req)) {
+  if (!verifyAdminRequest(req)) {
     return res.status(401).json({ error: 'Unauthorized.' });
   }
 
@@ -37,35 +78,41 @@ export default async function handler(req, res) {
     const supabase = getSupabase();
 
     if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', SETTINGS_KEY)
-        .maybeSingle();
-      if (error) throw error;
-
-      // Fall back to env/default if the row was never seeded.
-      const practitionerEmail =
-        (data && data.value) || process.env.PRACTITIONER_EMAIL || DEFAULT_PRACTITIONER_EMAIL;
-      return res.status(200).json({ practitionerEmail });
+      return res.status(200).json(await loadAllSettings(supabase));
     }
 
     if (req.method === 'PUT') {
       const body = req.body && typeof req.body === 'object' ? req.body : {};
-      const practitionerEmail =
-        typeof body.practitionerEmail === 'string' ? body.practitionerEmail.trim() : '';
+      const rows = [];
+      const now = new Date().toISOString();
 
-      if (!EMAIL_PATTERN.test(practitionerEmail)) {
-        return res.status(400).json({ error: 'practitionerEmail must be a valid email address.' });
+      // Legacy single-field form: { practitionerEmail }
+      if (body.practitionerEmail != null) {
+        const err = validateContentEntry('practitioner_email', body.practitionerEmail);
+        if (err) return res.status(400).json({ error: err });
+        rows.push({ key: 'practitioner_email', value: body.practitionerEmail.trim(), updated_at: now });
       }
 
-      const { error } = await supabase.from('settings').upsert(
-        { key: SETTINGS_KEY, value: practitionerEmail, updated_at: new Date().toISOString() },
-        { onConflict: 'key' }
-      );
+      // Content map form: { content: { key: value, ... } }
+      if (body.content != null) {
+        if (typeof body.content !== 'object' || Array.isArray(body.content)) {
+          return res.status(400).json({ error: 'content must be an object of key/value pairs.' });
+        }
+        for (const [key, value] of Object.entries(body.content)) {
+          const err = validateContentEntry(key, value);
+          if (err) return res.status(400).json({ error: err });
+          rows.push({ key, value: String(value).trim(), updated_at: now });
+        }
+      }
+
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'Nothing to update: provide practitionerEmail and/or content.' });
+      }
+
+      const { error } = await supabase.from('settings').upsert(rows, { onConflict: 'key' });
       if (error) throw error;
 
-      return res.status(200).json({ practitionerEmail });
+      return res.status(200).json(await loadAllSettings(supabase));
     }
 
     res.setHeader('Allow', 'GET, PUT');

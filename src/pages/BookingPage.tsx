@@ -6,6 +6,7 @@ import { calculateAvailableSlots, generateICS, createGoogleCalendarUrl } from '.
 import { sendBookingConfirmedNotification } from '../services/notifications';
 import { trackAnalyticsEvent } from '../services/storage';
 import { useAvailability } from '../hooks/useAvailability';
+import { usePhotos } from '../hooks/usePhotos';
 import { StepIndicator } from '../components/StepIndicator';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import {
@@ -96,6 +97,10 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   // Live availability from the serverless API (Supabase + Google Calendar),
   // falling back to the local calculation when the backend is unreachable.
   const { slots: apiSlots, error: availabilityError } = useAvailability(selectedDateStr, selectedDuration);
+
+  // Practitioner avatar photo slot (admin-replaceable)
+  const { photo } = usePhotos();
+  const bookingAvatarSrc = photo('booking-avatar');
 
   // Calculate live available slots
   const availableSlots = useMemo(() => {
@@ -463,7 +468,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
               {/* Therapist Mini Profile */}
               <div className="practitioner-mini-badge">
                 <img
-                  src="/assets/therapist.jpg"
+                  src={bookingAvatarSrc}
                   alt="Alina Heorhiieva"
                   className="practitioner-avatar"
                 />

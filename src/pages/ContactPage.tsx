@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Locale } from '../types';
 import { getTranslation } from '../services/i18n';
+import { useContent } from '../hooks/useContent';
+import { getWorkingHours } from '../services/hours';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import { InstagramIcon } from '../components/InstagramIcon';
 import { MapPin, Phone, Mail, Clock, Plane, Send, CheckCircle2 } from 'lucide-react';
@@ -15,6 +17,22 @@ export const ContactPage: React.FC<ContactPageProps> = ({
   onNavigate
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { content } = useContent();
+
+  // Localized weekday name (2024-01-07 was a Sunday → +dayOfWeek offset works)
+  const dayName = (dayOfWeek: number) =>
+    new Intl.DateTimeFormat(
+      currentLocale === 'uk' ? 'uk-UA' : currentLocale === 'pl' ? 'pl-PL' : 'en-GB',
+      { weekday: 'long' }
+    ).format(new Date(2024, 0, 7 + dayOfWeek));
+
+  // Weekly hours display, Monday first (admin-editable via working_hours)
+  const weeklyHoursDisplay = [...getWorkingHours()]
+    .sort((a, b) => ((a.dayOfWeek + 6) % 7) - ((b.dayOfWeek + 6) % 7))
+    .map((d) => ({
+      day: dayName(d.dayOfWeek),
+      text: d.isWorking ? `${d.startTime} – ${d.endTime}` : t('contact.hours_closed')
+    }));
 
   const [travelName, setTravelName] = useState('');
   const [travelEmail, setTravelEmail] = useState('');
@@ -82,7 +100,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>{t('contact.address_label')}</div>
                   <div style={{ fontSize: '1.05rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px' }}>
-                    {t('contact.address_val')}
+                    {content('contact_address')}
                   </div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--ink-light)', marginTop: '4px' }}>
                     Wrocław (Szczepin / Fabryczna • near Wrocław Mikołajów)
@@ -97,13 +115,11 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>{t('contact.hours_label')}</div>
                   <div style={{ fontSize: '0.95rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <span>{t('contact.hours_mon')}</span>
-                    <span>{t('contact.hours_tue')}</span>
-                    <span>{t('contact.hours_wed')}</span>
-                    <span>{t('contact.hours_thu')}</span>
-                    <span>{t('contact.hours_fri')}</span>
-                    <span>{t('contact.hours_sat')}</span>
-                    <span>{t('contact.hours_sun')}</span>
+                    {weeklyHoursDisplay.map((row) => (
+                      <span key={row.day}>
+                        <span style={{ textTransform: 'capitalize' }}>{row.day}</span>: {row.text}
+                      </span>
+                    ))}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--ink-light)', marginTop: '6px', fontStyle: 'italic' }}>
                     {t('contact.hours_note')}
@@ -119,12 +135,12 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>Instagram</div>
                   <a
-                    href="https://www.instagram.com/nirvana_massage.studio/"
+                    href={`https://www.instagram.com/${content('instagram_handle').replace(/^@/, '')}/`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ fontSize: '1.05rem', color: 'var(--taupe)', fontWeight: 600, textDecoration: 'none', display: 'inline-block', marginTop: '2px' }}
                   >
-                    @nirvana_massage.studio
+                    {content('instagram_handle')}
                   </a>
                   <div style={{ fontSize: '0.82rem', color: 'var(--ink-light)', marginTop: '3px' }}>
                     Masaż / Rehabilitacja • Wrocław PL / UA
@@ -139,7 +155,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>{t('contact.email_label')}</div>
                   <div style={{ fontSize: '1rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px' }}>
-                    {t('contact.email_val')}
+                    {content('contact_email')}
                   </div>
                 </div>
               </div>
@@ -151,7 +167,7 @@ export const ContactPage: React.FC<ContactPageProps> = ({
                 <div>
                   <div className="label-caps" style={{ fontSize: '0.7rem' }}>{t('contact.phone_label')}</div>
                   <div style={{ fontSize: '1rem', color: 'var(--ink)', fontWeight: 500, marginTop: '2px' }}>
-                    {t('contact.phone_val')}
+                    {content('contact_phone')}
                   </div>
                 </div>
               </div>

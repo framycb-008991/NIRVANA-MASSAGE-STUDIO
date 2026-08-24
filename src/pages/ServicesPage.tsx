@@ -2,6 +2,7 @@ import React from 'react';
 import { Locale } from '../types';
 import { getTranslation, formatCurrency } from '../services/i18n';
 import { TREATMENTS } from '../services/storage';
+import { usePhotos } from '../hooks/usePhotos';
 import { HalftoneCircle } from '../components/HalftoneCircle';
 import { Clock, Sparkles, CheckCircle2 } from 'lucide-react';
 
@@ -17,6 +18,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
   onSelectTreatmentForBooking
 }) => {
   const t = (key: string) => getTranslation(key, currentLocale);
+  const { photo } = usePhotos();
 
   const handleBook = (treatmentId: string, durationMinutes: number) => {
     onSelectTreatmentForBooking(treatmentId, durationMinutes);
@@ -110,7 +112,7 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
               {/* Treatment Photo Column */}
               <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', aspectRatio: '4/3', border: '1px solid rgba(201, 190, 176, 0.3)', backgroundColor: 'var(--mist)' }}>
                 <img
-                  src={treatment.image}
+                  src={photo(`treatment-${treatment.id}`)}
                   alt={t(treatment.nameKey)}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform 0.5s ease' }}
                   loading="lazy"
