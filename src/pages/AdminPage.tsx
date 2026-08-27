@@ -19,6 +19,12 @@ import {
   getCustomTreatments,
   saveCustomTreatments
 } from '../services/treatments';
+import {
+  SubscriptionTier,
+  getSubscriptionTiers,
+  getTierById,
+  saveSubscriptionTiers
+} from '../services/tiers';
 import { sendCancellationNotification } from '../services/notifications';
 import { getPractitionerEmail, setPractitionerEmail } from '../services/settings';
 import { getAdminToken, clearAdminToken, ADMIN_AUTH_ENABLED } from '../services/auth';
@@ -46,7 +52,8 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  Upload
+  Upload,
+  Users
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -61,7 +68,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
   // Auth gate — the panel renders only with a valid admin session token
   const [authed, setAuthed] = useState<boolean>(() => getAdminToken() !== null);
 
-  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics' | 'settings' | 'photos'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendar' | 'bookings' | 'intake' | 'notifications' | 'analytics' | 'settings' | 'photos' | 'memberships'>('calendar');
 
   // Data state
   const [bookings, setBookings] = useState<Booking[]>(getBookings());
@@ -104,12 +111,15 @@ export const AdminPage: React.FC<AdminPageProps> = ({
         }
         if (s?.content) {
           const incoming = { ...s.content };
-          // custom_treatments is managed by the services section below, not
-          // by the contact-info form — keep it out of that form's state.
+          // custom_treatments and subscription_tiers are managed by the
+          // services / tiers sections below, not by the contact-info form —
+          // keep them out of that form's state.
           delete incoming.custom_treatments;
+          delete incoming.subscription_tiers;
           setContactInfo((prev) => ({ ...prev, ...incoming }));
           setContentOverrides(s.content);
           setCustomServices(getCustomTreatments());
+          setTiersDraft(getSubscriptionTiers());
         }
       })
       .catch(() => {
@@ -196,6 +206,128 @@ export const AdminPage: React.FC<AdminPageProps> = ({
 
   const handleDeleteService = async (id: string) => {
     await persistCustomServices(customServices.filter((s) => s.id !== id));
+  };
+
+  // Membership tiers editor (Admin Panel → Settings → tiers section)
+  const [tiersDraft, setTiersDraft] = useState<SubscriptionTier[]>(getSubscriptionTiers());
+  const [tiersSaving, setTiersSaving] = useState(false);
+  const [tiersMsg, setTiersMsg] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  const updateTierDraft = (id: string, patch: Partial<SubscriptionTier>) => {
+    setTiersDraft((prev) => prev.map((tier) => (tier.id === id ? { ...tier, ...patch } : tier)));
+    setTiersMsg('idle');
+  };
+
+  const handleAddTier = () => {
+    setTiersDraft((prev) => [
+      ...prev,
+      {
+        id: `tier_${Date.now().toString(36)}`,
+        name: '',
+        focus: '',
+        persona: '',
+        sessionsPerCycle: 2,
+        sessionMinutes: 60,
+        monthlyPricePLN: 300,
+      },
+    ]);
+    setTiersMsg('idle');
+  };
+
+  const handleSaveTiers = async () => {
+    const valid = tiersDraft.filter(
+      (tier) =>
+        tier.name.trim().length > 0 &&
+        Number.isInteger(tier.sessionsPerCycle) && tier.sessionsPerCycle > 0 &&
+        Number.isInteger(tier.sessionMinutes) && tier.sessionMinutes > 0 &&
+        tier.monthlyPricePLN >= 0
+    );
+    if (valid.length !== tiersDraft.length) {
+      setTiersMsg('error');
+      return;
+    }
+    setTiersSaving(true);
+    setTiersMsg('idle');
+    try {
+      await saveSubscriptionTiers(valid);
+      setTiersMsg('saved');
+    } catch {
+      setTiersMsg('error');
+    } finally {
+      setTiersSaving(false);
+    }
+  };
+
+  // Memberships tab (members, subscriptions, credit adjustments)
+  interface AdminMember {
+    id: string;
+    email: string;
+    fullName: string | null;
+    createdAt: string;
+    subscription: {
+      tierId: string;
+      status: 'active' | 'past_due' | 'canceled';
+      monthlyPricePLN: number;
+      creditsPerCycle: number;
+      currentPeriodEnd: string;
+    } | null;
+    creditBalance: number;
+  }
+
+  const [members, setMembers] = useState<AdminMember[] | null>(null);
+  const [membersError, setMembersError] = useState(false);
+  const [adjustBusy, setAdjustBusy] = useState<string | null>(null);
+
+  const adminApiFetch = async <T,>(path: string, options: RequestInit = {}): Promise<T> => {
+    const token = getAdminToken();
+    const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+    const res = await fetch(path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'x-admin-key': env?.VITE_ADMIN_API_KEY ?? '',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(options.headers ?? {}),
+      },
+    });
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status}).`);
+    return data as T;
+  };
+
+  const loadMembers = async () => {
+    setMembersError(false);
+    try {
+      const data = await adminApiFetch<{ members: AdminMember[] }>('/api/admin/memberships');
+      setMembers(data.members);
+    } catch {
+      setMembersError(true);
+      setMembers([]);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'memberships' && members === null) {
+      void loadMembers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const handleAdjustCredits = async (memberId: string, adjust: number) => {
+    setAdjustBusy(memberId);
+    try {
+      const data = await adminApiFetch<{ creditBalance: number }>('/api/admin/memberships', {
+        method: 'POST',
+        body: JSON.stringify({ memberId, adjust }),
+      });
+      setMembers((prev) =>
+        prev ? prev.map((m) => (m.id === memberId ? { ...m, creditBalance: data.creditBalance } : m)) : prev
+      );
+    } catch {
+      setMembersError(true);
+    } finally {
+      setAdjustBusy(null);
+    }
   };
 
   // Photo slot management
@@ -408,6 +540,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({
             { id: 'notifications', label: `${t('admin.tab_notifications')} (${notifications.length})`, icon: <Mail size={15} /> },
             { id: 'analytics', label: t('admin.tab_analytics'), icon: <BarChart3 size={15} /> },
             { id: 'photos', label: t('admin.tab_photos'), icon: <ImageIcon size={15} /> },
+            { id: 'memberships', label: t('admin.tab_memberships'), icon: <Users size={15} /> },
             { id: 'settings', label: t('admin.tab_settings'), icon: <SettingsIcon size={15} /> }
           ];
           return (
@@ -1037,6 +1170,124 @@ export const AdminPage: React.FC<AdminPageProps> = ({
           </div>
         )}
 
+        {/* TAB 8: MEMBERSHIPS */}
+        {activeTab === 'memberships' && (
+          <div style={{ backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <Users size={20} color="#8A7A68" />
+                <h3 style={{ fontSize: '1.6rem', margin: 0 }}>{t('admin.members_title')}</h3>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ padding: '0.4rem 0.9rem', fontSize: '0.78rem' }}
+                onClick={() => void loadMembers()}
+              >
+                {t('admin.members_refresh')}
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', margin: '0 0 1.5rem' }}>
+              {t('admin.members_desc')}
+            </p>
+
+            {membersError && (
+              <p style={{ color: '#B25E5E', fontSize: '0.88rem', marginBottom: '1rem' }}>
+                {t('admin.members_error')}
+              </p>
+            )}
+
+            {members === null ? (
+              <p style={{ color: 'var(--ink-light)', fontSize: '0.9rem' }}>{t('account.loading')}</p>
+            ) : members.length === 0 ? (
+              <p style={{ color: 'var(--ink-light)', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                {t('admin.members_empty')}
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid rgba(201,190,176,0.4)', color: 'var(--taupe)' }}>
+                      <th style={{ padding: '0.8rem 1rem' }}>{t('admin.members_col_member')}</th>
+                      <th style={{ padding: '0.8rem 1rem' }}>{t('admin.members_col_tier')}</th>
+                      <th style={{ padding: '0.8rem 1rem' }}>{t('admin.members_col_status')}</th>
+                      <th style={{ padding: '0.8rem 1rem' }}>{t('admin.members_col_credits')}</th>
+                      <th style={{ padding: '0.8rem 1rem' }}>{t('admin.members_col_renews')}</th>
+                      <th style={{ padding: '0.8rem 1rem', textAlign: 'right' }}>{t('admin.members_col_adjust')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => (
+                      <tr key={m.id} style={{ borderBottom: '1px solid rgba(201,190,176,0.2)' }}>
+                        <td style={{ padding: '1rem' }}>
+                          <div style={{ fontWeight: 500, color: 'var(--ink)' }}>
+                            {m.fullName || m.email}
+                          </div>
+                          <div style={{ fontSize: '0.76rem', color: 'var(--ink-light)' }}>
+                            {m.email}
+                          </div>
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          {m.subscription
+                            ? getTierById(m.subscription.tierId)?.name || m.subscription.tierId
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          {m.subscription ? (
+                            <span className={`badge ${m.subscription.status === 'active' ? 'badge-sage' : 'badge-taupe'}`}>
+                              {m.subscription.status === 'active'
+                                ? t('account.status_active')
+                                : m.subscription.status === 'past_due'
+                                ? t('account.status_past_due')
+                                : t('account.status_canceled')}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--ink-muted)', fontSize: '0.8rem' }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          <strong>{m.creditBalance}</strong>
+                          {m.subscription && (
+                            <span style={{ fontSize: '0.76rem', color: 'var(--ink-light)' }}>
+                              {' '}/ {m.subscription.creditsPerCycle}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '1rem', fontSize: '0.82rem', color: 'var(--ink-light)' }}>
+                          {m.subscription
+                            ? formatLocaleDate(m.subscription.currentPeriodEnd.slice(0, 10), currentLocale, { day: 'numeric', month: 'short', year: 'numeric' })
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '1rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', marginRight: '0.4rem' }}
+                            disabled={adjustBusy === m.id}
+                            onClick={() => void handleAdjustCredits(m.id, -1)}
+                          >
+                            −1
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem' }}
+                            disabled={adjustBusy === m.id}
+                            onClick={() => void handleAdjustCredits(m.id, 1)}
+                          >
+                            +1
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TAB 7: STUDIO SETTINGS */}
         {activeTab === 'settings' && (
           <div style={{ backgroundColor: 'var(--white)', padding: '2.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(201,190,176,0.4)', boxShadow: 'var(--shadow-subtle)' }}>
@@ -1308,6 +1559,140 @@ export const AdminPage: React.FC<AdminPageProps> = ({
                   )}
                 </div>
               </form>
+            </div>
+
+            {/* Membership tiers editor */}
+            <div style={{ marginTop: '2.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(201,190,176,0.3)' }}>
+              <h4 style={{ fontSize: '1.15rem', margin: '0 0 0.3rem' }}>{t('admin.tiers_title')}</h4>
+              <p style={{ fontSize: '0.85rem', color: 'var(--ink-light)', margin: '0 0 1.2rem' }}>
+                {t('admin.tiers_desc')}
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginBottom: '1.2rem' }}>
+                {tiersDraft.map((tier) => (
+                  <div
+                    key={tier.id}
+                    style={{
+                      padding: '1rem 1.2rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid rgba(201,190,176,0.4)',
+                      backgroundColor: 'var(--mist)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', marginBottom: '0.7rem' }}>
+                      <span style={{ fontSize: '0.74rem', color: 'var(--ink-muted)', fontFamily: 'monospace' }}>{tier.id}</span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.3rem 0.6rem', fontSize: '0.72rem', color: '#B25E5E', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', flexShrink: 0 }}
+                        onClick={() => {
+                          setTiersDraft((prev) => prev.filter((x) => x.id !== tier.id));
+                          setTiersMsg('idle');
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        {t('admin.service_delete')}
+                      </button>
+                    </div>
+
+                    <div className="admin-settings-grid">
+                      <div className="form-group" style={{ marginBottom: '0.7rem' }}>
+                        <label className="form-label">{t('admin.tier_name')} *</label>
+                        <input
+                          type="text"
+                          className="custom-input"
+                          value={tier.name}
+                          onChange={(e) => updateTierDraft(tier.id, { name: e.target.value })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: '0.7rem' }}>
+                        <label className="form-label">{t('admin.tier_focus')}</label>
+                        <input
+                          type="text"
+                          className="custom-input"
+                          value={tier.focus}
+                          onChange={(e) => updateTierDraft(tier.id, { focus: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '0.7rem' }}>
+                      <label className="form-label">{t('admin.tier_persona')}</label>
+                      <input
+                        type="text"
+                        className="custom-input"
+                        value={tier.persona}
+                        onChange={(e) => updateTierDraft(tier.id, { persona: e.target.value })}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '0 0 120px' }}>
+                        <label className="form-label">{t('admin.tier_sessions')}</label>
+                        <input
+                          type="number"
+                          className="custom-input"
+                          min={1}
+                          value={tier.sessionsPerCycle}
+                          onChange={(e) => updateTierDraft(tier.id, { sessionsPerCycle: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '0 0 120px' }}>
+                        <label className="form-label">{t('admin.tier_minutes')}</label>
+                        <input
+                          type="number"
+                          className="custom-input"
+                          min={10}
+                          step={5}
+                          value={tier.sessionMinutes}
+                          onChange={(e) => updateTierDraft(tier.id, { sessionMinutes: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0, flex: '0 0 140px' }}>
+                        <label className="form-label">{t('admin.tier_price')}</label>
+                        <input
+                          type="number"
+                          className="custom-input"
+                          min={0}
+                          value={tier.monthlyPricePLN}
+                          onChange={(e) => updateTierDraft(tier.id, { monthlyPricePLN: Number(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ padding: '0.4rem 0.9rem', fontSize: '0.78rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  onClick={handleAddTier}
+                >
+                  <Plus size={13} />
+                  {t('admin.tier_add')}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={tiersSaving}
+                  onClick={() => void handleSaveTiers()}
+                >
+                  {t('admin.tiers_save')}
+                </button>
+                {tiersMsg === 'saved' && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#557A55', fontSize: '0.88rem', fontWeight: 500 }}>
+                    <CheckCircle2 size={16} />
+                    {t('admin.tiers_saved')}
+                  </span>
+                )}
+                {tiersMsg === 'error' && (
+                  <span style={{ color: '#B25E5E', fontSize: '0.88rem' }}>
+                    {t('admin.tiers_error')}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         )}

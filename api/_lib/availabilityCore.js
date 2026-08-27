@@ -32,6 +32,11 @@ export async function fetchAvailabilityInputs(supabase, date) {
   // Weekday of the date (timezone-independent: derived from the UTC calendar day).
   const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay();
 
+  // pending_payment bookings hold their slot while the client is in Stripe
+  // Checkout; after PENDING_HOLD_MINUTES the hold is considered abandoned and
+  // the slot frees up (the webhook also cancels it on session expiry).
+  const pendingCutoff = new Date(Date.now() - PENDING_HOLD_MINUTES * 60 * 1000).toISOString();
+
   const [hoursResult, overrideResult, bookingsResult] = await Promise.all([
     supabase.from('working_hours').select('*').eq('day_of_week', dayOfWeek).maybeSingle(),
     supabase.from('date_overrides').select('*').eq('override_date', date).maybeSingle(),
@@ -39,7 +44,10 @@ export async function fetchAvailabilityInputs(supabase, date) {
       .from('bookings')
       .select('start_time, duration_minutes')
       .eq('booking_date', date)
-      .eq('status', 'confirmed'),
+      .or(
+        `status.eq.confirmed,` +
+          `and(status.eq.pending_payment,created_at.gt.${pendingCutoff})`
+      ),
   ]);
 
   if (hoursResult.error) throw hoursResult.error;
@@ -70,6 +78,9 @@ export const DEPOSIT_PLN = 50;
 
 /** Slots must start at least this many minutes in the future (same-day rule). */
 export const MIN_LEAD_MINUTES = 60;
+
+/** How long a pending_payment booking holds its slot during Stripe Checkout. */
+export const PENDING_HOLD_MINUTES = 35;
 
 /** Formatter used to derive Warsaw wall-clock parts from a UTC instant. */
 const warsawFormatter = new Intl.DateTimeFormat('en-US', {
@@ -221,7 +232,7 @@ export function intervalsOverlap(aStart, aEnd, bStart, bEnd) {
  *
  * @param {object} input
  * @param {string} input.date               `YYYY-MM-DD` (already validated, not in the past)
- * @param {number} input.durationMinutes    60 or 90
+ * @param {number} input.durationMinutes    30, 45, 60 or 90
  * @param {object|null} input.weeklyHours   working_hours row for the weekday (or null)
  * @param {object|null} input.override      date_overrides row for the date (or null)
  * @param {Array<{start_time: string, duration_minutes: number}>} input.bookings

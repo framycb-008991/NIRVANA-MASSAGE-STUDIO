@@ -1,7 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Locale } from '../types';
 import { getTranslation, LOCALE_NAMES } from '../services/i18n';
-import { Menu, X, Calendar, UserCheck } from 'lucide-react';
+import {
+  isMemberAuthEnabled,
+  getMemberSession,
+  onMemberAuthChange,
+  signOutMember
+} from '../services/memberAuth';
+import { MemberAuthForm } from './MemberAuthForm';
+import { Menu, X, Calendar, UserCheck, User, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   currentLocale: Locale;
@@ -18,12 +26,24 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Optional member auth (magic links) — hidden entirely when not configured
+  const memberAuthEnabled = isMemberAuthEnabled();
+  const [memberSession, setMemberSession] = useState<Session | null>(null);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!memberAuthEnabled) return;
+    void getMemberSession().then(setMemberSession);
+    return onMemberAuthChange(setMemberSession);
+  }, [memberAuthEnabled]);
+
   const t = (key: string) => getTranslation(key, currentLocale);
 
   const navItems = [
     { id: 'home', label: t('nav.home'), path: `/${currentLocale}` },
     { id: 'about', label: t('nav.about'), path: `/${currentLocale}/about` },
     { id: 'services', label: t('nav.services'), path: `/${currentLocale}/services` },
+    { id: 'membership', label: t('nav.membership'), path: `/${currentLocale}/membership` },
     { id: 'booking', label: t('nav.booking'), path: `/${currentLocale}/booking` },
     { id: 'contact', label: t('nav.contact'), path: `/${currentLocale}/contact` }
   ];
@@ -31,6 +51,11 @@ export const Header: React.FC<HeaderProps> = ({
   const handleNavClick = (path: string) => {
     onNavigate(path);
     setMobileMenuOpen(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOutMember();
+    setMemberModalOpen(false);
   };
 
   const isActive = (itemPath: string) => {
@@ -108,6 +133,41 @@ export const Header: React.FC<HeaderProps> = ({
             <Calendar size={14} />
             <span>{t('hero.cta_book')}</span>
           </button>
+
+          {/* Member auth widget (only when member auth is configured) */}
+          {memberAuthEnabled && (
+            memberSession ? (
+              <>
+                <button
+                  className="btn btn-ghost header-desktop-only"
+                  style={{ padding: '0.5rem 0.8rem', fontSize: '0.78rem' }}
+                  onClick={() => handleNavClick(`/${currentLocale}/account`)}
+                  title={t('member.my_account')}
+                >
+                  <User size={14} />
+                  <span>{t('member.my_account')}</span>
+                </button>
+                <button
+                  className="btn btn-ghost header-desktop-only"
+                  style={{ padding: '0.5rem', borderRadius: '50%' }}
+                  onClick={() => void handleSignOut()}
+                  title={t('member.sign_out')}
+                  aria-label={t('member.sign_out')}
+                >
+                  <LogOut size={16} color="#8A7A68" />
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-ghost header-desktop-only"
+                style={{ padding: '0.5rem 0.8rem', fontSize: '0.78rem' }}
+                onClick={() => setMemberModalOpen(true)}
+              >
+                <User size={14} />
+                <span>{t('member.sign_in')}</span>
+              </button>
+            )
+          )}
 
           {/* Practitioner Portal subtle link */}
           <button
@@ -190,6 +250,38 @@ export const Header: React.FC<HeaderProps> = ({
               ))}
             </div>
 
+            {memberAuthEnabled && (
+              memberSession ? (
+                <div style={{ display: 'flex', gap: '0.8rem' }}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => handleNavClick(`/${currentLocale}/account`)}
+                  >
+                    <User size={16} />
+                    <span>{t('member.my_account')}</span>
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => void handleSignOut()}
+                  >
+                    <LogOut size={16} />
+                    <span>{t('member.sign_out')}</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setMemberModalOpen(true);
+                  }}
+                >
+                  <User size={16} />
+                  <span>{t('member.sign_in')}</span>
+                </button>
+              )
+            )}
+
             <button
               className="btn btn-outline"
               onClick={() => handleNavClick(`/${currentLocale}/admin`)}
@@ -197,6 +289,24 @@ export const Header: React.FC<HeaderProps> = ({
               <UserCheck size={16} />
               <span>{t('nav.admin')}</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Member sign-in modal (magic link) */}
+      {memberAuthEnabled && memberModalOpen && !memberSession && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setMemberModalOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: '1.6rem', marginBottom: '0.4rem' }}>{t('member.signin_title')}</h3>
+            <p style={{ fontSize: '0.88rem', color: 'var(--ink-light)', marginBottom: '0.4rem', lineHeight: 1.6 }}>
+              {t('member.signin_desc')}
+            </p>
+            <MemberAuthForm currentLocale={currentLocale} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.4rem' }}>
+              <button type="button" className="btn btn-ghost" onClick={() => setMemberModalOpen(false)}>
+                {t('member.close')}
+              </button>
+            </div>
           </div>
         </div>
       )}

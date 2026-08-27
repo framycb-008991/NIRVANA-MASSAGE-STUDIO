@@ -23,11 +23,14 @@
 import { getSupabase } from '../_lib/supabase.js';
 import { verifyAdminRequest } from '../_lib/auth.js';
 import { CONTENT_SLOTS, isContentKey, getContentDefault } from '../_lib/contentSlots.js';
+import { validateTiers } from '../_lib/tiers.js';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_VALUE_LENGTH = 300;
 /** custom_treatments stores a JSON array of service objects — needs more room. */
 const MAX_TREATMENTS_LENGTH = 20000;
+/** subscription_tiers stores a JSON array of tier objects. */
+const MAX_TIERS_LENGTH = 20000;
 
 /** Slots whose value must be a valid email address. */
 const EMAIL_KEYS = new Set(['practitioner_email', 'contact_email']);
@@ -106,6 +109,15 @@ function validateContentEntry(key, value) {
       return `custom_treatments is too long (max ${MAX_TREATMENTS_LENGTH} characters).`;
     }
     return validateCustomTreatments(value);
+  }
+  if (key === 'subscription_tiers') {
+    if (typeof value !== 'string') return 'subscription_tiers must be a JSON string.';
+    if (value.length > MAX_TIERS_LENGTH) {
+      return `subscription_tiers is too long (max ${MAX_TIERS_LENGTH} characters).`;
+    }
+    if (value.trim() === '') return null; // empty = fall back to built-in defaults
+    const result = validateTiers(value);
+    return result.error || null;
   }
   if (typeof value !== 'string' || value.trim().length === 0) {
     return `Value for ${key} must be a non-empty string.`;

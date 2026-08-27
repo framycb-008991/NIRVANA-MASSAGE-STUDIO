@@ -43,6 +43,14 @@ export const CONTENT_SLOTS = [
     public: true,
     label: 'Custom massage services (JSON)',
   },
+  // Membership tiers shown on the public Membership page and purchasable via
+  // Stripe Billing. JSON array; validated in api/admin/settings.js.
+  {
+    key: 'subscription_tiers',
+    defaultValue: '',
+    public: true,
+    label: 'Membership tiers (JSON)',
+  },
   // Admin-only slots (never exposed by the public /api/content endpoint):
   {
     key: 'practitioner_email',

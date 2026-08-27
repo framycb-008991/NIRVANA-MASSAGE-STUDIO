@@ -96,3 +96,30 @@ export function verifyAdminRequest(req) {
 
   return false;
 }
+
+/**
+ * Member (registered client) authentication.
+ *
+ * Members sign in with a Supabase Auth email magic link on the frontend and
+ * send the resulting access token as `Authorization: Bearer <jwt>`. The API
+ * validates it against Supabase (service-role client) and returns the auth
+ * user. Returns null for missing/invalid tokens.
+ *
+ * @param {import('@supabase/supabase-js').SupabaseClient} supabase service-role client
+ * @param req Express/Vercel-style request
+ * @returns {Promise<{ id: string, email: string } | null>}
+ */
+export async function verifyMemberRequest(supabase, req) {
+  const auth = req.headers['authorization'];
+  if (typeof auth !== 'string' || !auth.startsWith('Bearer ')) return null;
+  const token = auth.slice('Bearer '.length).trim();
+  if (!token) return null;
+
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data || !data.user) return null;
+    return { id: data.user.id, email: data.user.email || '' };
+  } catch {
+    return null;
+  }
+}

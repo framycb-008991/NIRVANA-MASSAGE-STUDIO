@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import { Locale, BookingType, Booking, BookingClient } from '../types';
 import { getTranslation, formatLocaleDate, formatMonthYear, formatCurrency } from '../services/i18n';
 import { saveBooking } from '../services/storage';
@@ -6,6 +7,12 @@ import { getAllTreatments } from '../services/treatments';
 import { calculateAvailableSlots, generateICS, createGoogleCalendarUrl } from '../services/calendar';
 import { sendBookingConfirmedNotification } from '../services/notifications';
 import { trackAnalyticsEvent } from '../services/storage';
+import {
+  isMemberAuthEnabled,
+  getMemberSession,
+  getMemberAccessToken,
+  onMemberAuthChange
+} from '../services/memberAuth';
 import { useAvailability } from '../hooks/useAvailability';
 import { usePhotos } from '../hooks/usePhotos';
 import { StepIndicator } from '../components/StepIndicator';
@@ -40,9 +47,19 @@ export const BookingPage: React.FC<BookingPageProps> = ({
   const t = (key: string) => getTranslation(key, currentLocale);
 
   // Flow State
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Payment State (Step 3)
+  const [paymentChoice, setPaymentChoice] = useState<'deposit' | 'full' | 'credit'>('deposit');
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Optional member auth — enables the membership-credit payment option
+  const memberAuthEnabled = isMemberAuthEnabled();
+  const [memberSession, setMemberSession] = useState<Session | null>(null);
+  const [memberCredits, setMemberCredits] = useState<{ creditBalance: number; subscriptionActive: boolean } | null>(null);
+  const [creditConfirmation, setCreditConfirmation] = useState<{ bookingId: string; creditBalance: number } | null>(null);
 
   // Form selections (Step 1)
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<string>(
@@ -98,7 +115,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
 
   // Live availability from the serverless API (Supabase + Google Calendar),
   // falling back to the local calculation when the backend is unreachable.
-  const { slots: apiSlots, error: availabilityError } = useAvailability(selectedDateStr, selectedDuration);
+  const { slots: apiSlots, error: availabilityError, refetch: refetchAvailability } = useAvailability(selectedDateStr, selectedDuration);
 
   // Practitioner avatar photo slot (admin-replaceable)
   const { photo } = usePhotos();
@@ -132,11 +149,47 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     });
   }, []);
 
-  // Price calculations
+  // Price calculations — the 30% deposit mirrors api/_lib/pricing.js depositFor()
+  // (display only; the server always re-derives the canonical amounts).
   const durationOption = selectedTreatment.durations.find(d => d.minutes === selectedDuration) || selectedTreatment.durations[0];
   const pricePLN = durationOption.pricePLN;
   const priceEUR = durationOption.priceEUR;
-  const depositPLN = 50;
+  const depositPLN = Math.ceil(pricePLN * 0.3);
+  const remainderPLN = pricePLN - depositPLN;
+
+  // Track member sign-in state (no-op when member auth is not configured)
+  useEffect(() => {
+    if (!memberAuthEnabled) return;
+    void getMemberSession().then(setMemberSession);
+    return onMemberAuthChange(setMemberSession);
+  }, [memberAuthEnabled]);
+
+  // Refresh the credit balance whenever a signed-in member reaches Step 3
+  useEffect(() => {
+    if (!memberSession || step !== 3) return;
+    void (async () => {
+      try {
+        const token = await getMemberAccessToken();
+        if (!token) return;
+        const res = await fetch('/api/account', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          creditBalance?: number;
+          subscription?: { status: string } | null;
+        };
+        setMemberCredits({
+          creditBalance: data.creditBalance ?? 0,
+          subscriptionActive: data.subscription?.status === 'active'
+        });
+      } catch {
+        // Backend unreachable — the credit option stays in its checking state
+      }
+    })();
+  }, [memberSession, step]);
+
+  const creditEligible = memberCredits !== null && memberCredits.subscriptionActive && memberCredits.creditBalance >= 1;
 
   // Calendar Grid builder
   const calendarDays = useMemo(() => {
@@ -216,12 +269,31 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     return Object.keys(errs).length === 0;
   };
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
+  const handleProceedToStep3 = (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateStep2() || !selectedTimeSlot) return;
 
-    setIsSubmitting(true);
+    setSubmitError(null);
 
+    trackAnalyticsEvent({
+      id: 'evt_' + Math.random().toString(36).substr(2, 9),
+      event: 'booking_funnel',
+      step: 'step_3_view',
+      treatmentId: selectedTreatmentId,
+      bookingType,
+      locale: currentLocale,
+      timestamp: new Date().toISOString(),
+      path: window.location.pathname
+    });
+
+    setStep(3);
+    window.scrollTo({ top: 120, behavior: 'smooth' });
+  };
+
+  // Legacy pay-at-session completion: local confirmation view + fire-and-forget
+  // persistence. Used when online payment is not configured (Stripe keys
+  // missing, or the API is unreachable on a plain `vite` dev server).
+  const completeLegacyBooking = () => {
     const newBooking: Booking = {
       id: 'nirvana_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
       treatmentId: selectedTreatmentId,
@@ -233,7 +305,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
       location: bookingType === 'private' ? privateLocation : 'Nirvana Massage Studio (ul. Przedmiejska 2/02, Wrocław)',
       timezone,
       date: selectedDateStr,
-      timeSlot: selectedTimeSlot,
+      timeSlot: selectedTimeSlot!,
       client: clientInfo,
       status: 'confirmed',
       createdAt: new Date().toISOString(),
@@ -288,6 +360,163 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     }, 600);
   };
 
+  // Step 3 confirm with a membership credit: books directly, no payment.
+  const handleCreditConfirm = async () => {
+    if (!selectedTimeSlot || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const token = await getMemberAccessToken();
+      if (!token) {
+        setSubmitError(t('booking.credit_error_401'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          firstName: clientInfo.firstName,
+          surname: clientInfo.surname,
+          email: clientInfo.email,
+          phone: clientInfo.phone,
+          treatmentId: selectedTreatmentId,
+          treatmentName: t(selectedTreatment.nameKey),
+          durationMinutes: selectedDuration,
+          pricePLN,
+          date: selectedDateStr,
+          timeSlot: selectedTimeSlot,
+          bookingType,
+          location: bookingType === 'private' ? privateLocation : 'Nirvana Massage Studio (ul. Przedmiejska 2/02, Wrocław)',
+          notes: clientInfo.notes,
+          locale: currentLocale,
+          paymentChoice: 'credit'
+        })
+      });
+
+      if (res.status === 409) {
+        refetchAvailability();
+        setSubmitError(t('booking.slot_taken'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (res.status === 401) {
+        setSubmitError(t('booking.credit_error_401'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (res.status === 403) {
+        setSubmitError(t('booking.credit_error_403'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const data = (await res.json().catch(() => null)) as
+        | { bookedWithCredit?: boolean; bookingId?: string; creditBalance?: number; error?: string }
+        | null;
+
+      if (!res.ok || !data || !data.bookedWithCredit || !data.bookingId) {
+        setSubmitError((data && data.error) || t('booking.payment_error'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      trackAnalyticsEvent({
+        id: 'evt_' + Math.random().toString(36).substr(2, 9),
+        event: 'booking_funnel',
+        step: 'booking_completed',
+        treatmentId: selectedTreatmentId,
+        bookingType,
+        locale: currentLocale,
+        timestamp: new Date().toISOString(),
+        path: window.location.pathname
+      });
+
+      const remaining = data.creditBalance ?? 0;
+      setCreditConfirmation({ bookingId: data.bookingId, creditBalance: remaining });
+      setMemberCredits(prev => (prev ? { ...prev, creditBalance: remaining } : prev));
+      setIsSubmitting(false);
+      window.scrollTo({ top: 80, behavior: 'smooth' });
+    } catch {
+      setSubmitError(t('booking.payment_error'));
+      setIsSubmitting(false);
+    }
+  };
+
+  // Step 3 confirm: start a Stripe Checkout Session and redirect to it.
+  const handlePaymentConfirm = async () => {
+    if (paymentChoice === 'credit') {
+      await handleCreditConfirm();
+      return;
+    }
+    if (!selectedTimeSlot || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const res = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: clientInfo.firstName,
+          surname: clientInfo.surname,
+          email: clientInfo.email,
+          phone: clientInfo.phone,
+          treatmentId: selectedTreatmentId,
+          treatmentName: t(selectedTreatment.nameKey),
+          durationMinutes: selectedDuration,
+          pricePLN,
+          date: selectedDateStr,
+          timeSlot: selectedTimeSlot,
+          bookingType,
+          location: bookingType === 'private' ? privateLocation : 'Nirvana Massage Studio (ul. Przedmiejska 2/02, Wrocław)',
+          notes: clientInfo.notes,
+          locale: currentLocale,
+          paymentChoice
+        })
+      });
+
+      // Online payment not configured (503: no Stripe keys) or the API is not
+      // served at all (404 on a plain `vite` dev server) — silently fall back
+      // to the legacy pay-at-session flow.
+      if (res.status === 503 || res.status === 404) {
+        completeLegacyBooking();
+        return;
+      }
+
+      const data = await res.json().catch(() => null);
+
+      // Slot taken between selection and checkout — refresh availability and
+      // let the client pick another time.
+      if (res.status === 409) {
+        refetchAvailability();
+        setSubmitError(t('booking.slot_taken'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok || !data || !data.checkoutUrl) {
+        setSubmitError((data && data.error) || t('booking.payment_error'));
+        setIsSubmitting(false);
+        return;
+      }
+
+      window.location.href = data.checkoutUrl;
+    } catch {
+      // Network failure / API unreachable — treat as "not configured".
+      completeLegacyBooking();
+    }
+  };
+
   const handleDownloadICS = () => {
     if (!confirmedBooking) return;
     const icsContent = generateICS(confirmedBooking, t(selectedTreatment.nameKey));
@@ -299,6 +528,108 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     link.click();
     document.body.removeChild(link);
   };
+
+  // CREDIT CONFIRMATION VIEW (membership credit booking — no payment needed)
+  if (creditConfirmation) {
+    const treatmentName = t(selectedTreatment.nameKey);
+    const formattedDate = formatLocaleDate(selectedDateStr, currentLocale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    return (
+      <main id="main-content" className="section-spacing" style={{ paddingTop: '3rem' }}>
+        <div className="container">
+          <div className="confirmed-panel">
+            {/* Halftone watermark */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '-80px',
+                right: '-80px',
+                pointerEvents: 'none',
+                opacity: 0.12
+              }}
+            >
+              <HalftoneCircle size={380} color="#FFFFFF" />
+            </div>
+
+            <CheckCircle2 size={54} color="#FFFFFF" style={{ margin: '0 auto' }} />
+            <h2>{t('booking.credit_confirmed_title')}</h2>
+            <p style={{ fontSize: '1.08rem', maxWidth: '520px', margin: '0 auto 2rem', opacity: 0.9 }}>
+              {t('booking.confirmed_subtitle')}
+            </p>
+
+            <div className="confirmed-details-card">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '1.2rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--taupe)' }}>
+                    Treatment
+                  </div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 500, fontFamily: 'var(--font-serif)' }}>
+                    {treatmentName} ({selectedDuration} min)
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--taupe)' }}>
+                    Date &amp; Time
+                  </div>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 500 }}>
+                    {formattedDate} • {selectedTimeSlot}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--taupe)' }}>
+                    {t('booking.credit_covered_by')}
+                  </div>
+                  <div style={{ fontSize: '0.95rem' }}>
+                    {t('booking.credit_membership_credit')} · {t('booking.credit_left')}: <strong>{creditConfirmation.creditBalance}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Post-booking Health Intake Callout */}
+            <div className="intake-cta-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                <FileText size={20} color="#8A7A68" />
+                <h4 style={{ fontSize: '1.2rem', margin: 0 }}>
+                  {t('booking.intake_card_title')}
+                </h4>
+              </div>
+              <p style={{ fontSize: '0.92rem', color: 'var(--ink-light)', marginBottom: '1.2rem', lineHeight: '1.6' }}>
+                {t('booking.intake_card_desc')}
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={() => onNavigate(`/${currentLocale}/intake?booking_id=${creditConfirmation.bookingId}`)}
+              >
+                <span>{t('booking.intake_button')}</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
+
+            <div style={{ marginTop: '2.5rem' }}>
+              <button
+                className="btn btn-ghost"
+                style={{ color: 'var(--ink)' }}
+                onClick={() => {
+                  setCreditConfirmation(null);
+                  setStep(1);
+                }}
+              >
+                {t('booking.book_another')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   // CONFIRMATION VIEW
   if (confirmedBooking) {
@@ -429,7 +760,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
     );
   }
 
-  // MAIN TWO-STEP BOOKING FLOW
+  // MAIN THREE-STEP BOOKING FLOW
   return (
     <main id="main-content" className="booking-flow-container">
       {/* Title */}
@@ -760,7 +1091,7 @@ export const BookingPage: React.FC<BookingPageProps> = ({
           </div>
 
           {/* Form Fields */}
-          <form onSubmit={handleConfirmBooking}>
+          <form onSubmit={handleProceedToStep3}>
             <div className="form-grid-2">
               <div className="form-group">
                 <label className="form-label">{t('booking.first_name')} *</label>
@@ -825,17 +1156,6 @@ export const BookingPage: React.FC<BookingPageProps> = ({
               />
             </div>
 
-            {/* Deposit & Cancellation Notice (PAYMENTS_SPEC Option B) */}
-            <div className="deposit-notice-card">
-              <div style={{ fontWeight: 500, marginBottom: '0.3rem' }}>
-                {t('booking.deposit_title')}
-              </div>
-              <div style={{ marginBottom: '0.4rem' }}>{t('booking.deposit_text')}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--ink-light)', fontStyle: 'italic' }}>
-                {t('booking.cancellation_policy')}
-              </div>
-            </div>
-
             {/* Actions */}
             <div className="step2-actions-row">
               <button
@@ -849,12 +1169,160 @@ export const BookingPage: React.FC<BookingPageProps> = ({
               <button
                 type="submit"
                 className="btn btn-primary"
-                disabled={isSubmitting}
               >
-                {isSubmitting ? t('booking.processing') : t('booking.btn_confirm')}
+                <span>{t('booking.btn_continue_payment')}</span>
+                <ArrowRight size={16} />
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* STEP 3: PAYMENT CHOICE */}
+      {step === 3 && (
+        <div className="step2-card">
+          {/* Halftone watermark */}
+          <div
+            style={{
+              position: 'absolute',
+              bottom: '-40px',
+              right: '-40px',
+              pointerEvents: 'none',
+              opacity: 0.08
+            }}
+          >
+            <HalftoneCircle size={300} color="#8A7A68" />
+          </div>
+
+          <h2 style={{ fontSize: '2rem', marginBottom: '1.2rem', textAlign: 'center' }}>
+            {t('booking.step3_title')}
+          </h2>
+
+          {/* Selected Summary Banner with Edit Back Link */}
+          <div className="summary-banner">
+            <div className="summary-details">
+              <h4>{t(selectedTreatment.nameKey)} ({selectedDuration} min)</h4>
+              <div className="summary-meta">
+                {formatLocaleDate(selectedDateStr, currentLocale, { weekday: 'long', day: 'numeric', month: 'long' })} at {selectedTimeSlot}
+                &nbsp;•&nbsp;
+                {bookingType === 'in_studio' ? 'Wrocław Studio (ul. Przedmiejska 2/02)' : `Private: ${privateLocation}`}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="edit-back-link"
+              onClick={() => setStep(1)}
+            >
+              {t('booking.edit_link')}
+            </button>
+          </div>
+
+          {/* Payment Option Cards */}
+          <div className="payment-choice-grid" role="radiogroup" aria-label={t('booking.step3_title')}>
+            <button
+              type="button"
+              className={`payment-choice-card ${paymentChoice === 'deposit' ? 'active' : ''}`}
+              onClick={() => setPaymentChoice('deposit')}
+              aria-pressed={paymentChoice === 'deposit'}
+            >
+              <div className="payment-choice-title">{t('booking.pay_deposit_title')}</div>
+              <div className="payment-choice-amount">{formatCurrency(depositPLN, 'PLN', currentLocale)}</div>
+              <div className="payment-choice-lines">
+                <div>{t('booking.pay_now')}: <strong>{formatCurrency(depositPLN, 'PLN', currentLocale)}</strong></div>
+                <div>{t('booking.pay_at_session')}: <strong>{formatCurrency(remainderPLN, 'PLN', currentLocale)}</strong></div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`payment-choice-card ${paymentChoice === 'full' ? 'active' : ''}`}
+              onClick={() => setPaymentChoice('full')}
+              aria-pressed={paymentChoice === 'full'}
+            >
+              <div className="payment-choice-title">{t('booking.pay_full_title')}</div>
+              <div className="payment-choice-amount">{formatCurrency(pricePLN, 'PLN', currentLocale)}</div>
+              <div className="payment-choice-lines">
+                <div>{t('booking.pay_now')}: <strong>{formatCurrency(pricePLN, 'PLN', currentLocale)}</strong></div>
+                <div>{t('booking.nothing_at_session')}</div>
+              </div>
+            </button>
+
+            {/* Membership credit option — only for signed-in members */}
+            {memberSession && (
+              <button
+                type="button"
+                className={`payment-choice-card ${paymentChoice === 'credit' ? 'active' : ''}`}
+                disabled={memberCredits !== null && !creditEligible}
+                onClick={() => setPaymentChoice('credit')}
+                aria-pressed={paymentChoice === 'credit'}
+              >
+                <div className="payment-choice-title">{t('booking.pay_credit_title')}</div>
+                <div className="payment-choice-amount">{formatCurrency(0, 'PLN', currentLocale)}</div>
+                <div className="payment-choice-lines">
+                  {memberCredits === null ? (
+                    <div>{t('booking.credit_checking')}</div>
+                  ) : creditEligible ? (
+                    <>
+                      <div>{t('booking.pay_now')}: <strong>{formatCurrency(0, 'PLN', currentLocale)}</strong></div>
+                      <div>{t('booking.credit_left_after')}: <strong>{memberCredits.creditBalance - 1}</strong></div>
+                    </>
+                  ) : (
+                    <div>{t('booking.credit_unavailable')}</div>
+                  )}
+                </div>
+              </button>
+            )}
+          </div>
+
+          {/* Payment & Cancellation Notice */}
+          <div className="deposit-notice-card">
+            <div style={{ fontWeight: 500, marginBottom: '0.3rem' }}>
+              {t('booking.deposit_title')}
+            </div>
+            <div style={{ marginBottom: '0.4rem' }}>{t('booking.deposit_text')}</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--ink-light)', fontStyle: 'italic' }}>
+              {t('booking.cancellation_policy')}
+            </div>
+          </div>
+
+          {submitError && (
+            <div className="inline-error" style={{ fontSize: '0.86rem', marginBottom: '0.5rem' }} role="alert">
+              {submitError}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="step2-actions-row">
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={() => {
+                setSubmitError(null);
+                setStep(2);
+              }}
+            >
+              {t('booking.btn_back')}
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={isSubmitting}
+              onClick={handlePaymentConfirm}
+            >
+              {isSubmitting
+                ? t('booking.processing')
+                : paymentChoice === 'credit'
+                ? t('booking.btn_confirm')
+                : t('booking.btn_pay_confirm')}
+            </button>
+          </div>
+
+          {paymentChoice !== 'credit' && (
+            <div style={{ marginTop: '0.9rem', fontSize: '0.74rem', color: 'var(--ink-light)', textAlign: 'center' }}>
+              {t('booking.secure_note')}
+            </div>
+          )}
         </div>
       )}
     </main>

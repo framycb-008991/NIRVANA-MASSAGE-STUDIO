@@ -1155,6 +1155,144 @@ h1, h2, h3, h4, .badge, .brand-lockup, td, th {
   color: var(--ink);
 }
 
+/* Step 3 — Payment Choice */
+.payment-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.payment-choice-card {
+  background-color: var(--mist);
+  border: 1.5px solid rgba(201, 190, 176, 0.4);
+  border-radius: var(--radius-md);
+  padding: 1.4rem 1.5rem;
+  text-align: left;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+
+.payment-choice-card:hover {
+  border-color: var(--taupe);
+  transform: translateY(-1px);
+}
+
+.payment-choice-card.active {
+  background-color: var(--taupe);
+  color: var(--white);
+  border-color: var(--taupe);
+  box-shadow: 0 3px 10px rgba(138, 122, 104, 0.25);
+}
+
+.payment-choice-title {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sage-dark);
+}
+
+.payment-choice-card.active .payment-choice-title {
+  color: var(--mist);
+}
+
+.payment-choice-amount {
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  line-height: 1.1;
+}
+
+.payment-choice-lines {
+  font-size: 0.82rem;
+  color: var(--ink-light);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 0.4rem;
+}
+
+.payment-choice-card.active .payment-choice-lines {
+  color: var(--mist);
+}
+
+.payment-choice-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.payment-choice-card:disabled:hover {
+  border-color: rgba(201, 190, 176, 0.4);
+}
+
+/* Membership tier cards */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  gap: 1.4rem;
+}
+
+.tier-card {
+  background-color: var(--white);
+  border: 1px solid rgba(201, 190, 176, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.8rem;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  transition: var(--transition-fast);
+}
+
+.tier-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--taupe);
+}
+
+.tier-card-focus {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sage-dark);
+}
+
+.tier-card-name {
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.tier-card-sessions {
+  font-size: 0.84rem;
+  color: var(--ink-light);
+}
+
+.tier-card-price {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  color: var(--taupe);
+  margin-top: 0.5rem;
+}
+
+.tier-card-price-suffix {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  color: var(--ink-light);
+  margin-left: 0.3rem;
+}
+
+.tier-card-persona {
+  font-size: 0.88rem;
+  color: var(--ink-light);
+  line-height: 1.6;
+  margin: 0.4rem 0 1.2rem;
+}
+
 .step2-actions-row {
   display: flex;
   align-items: center;
@@ -1448,6 +1586,10 @@ h1, h2, h3, h4, .badge, .brand-lockup, td, th {
   }
 
   .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-choice-grid {
     grid-template-columns: 1fr;
   }
 

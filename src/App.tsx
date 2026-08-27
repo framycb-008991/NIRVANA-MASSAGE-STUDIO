@@ -10,6 +10,10 @@ import { HomePage } from './pages/HomePage';
 import { AboutPage } from './pages/AboutPage';
 import { ServicesPage } from './pages/ServicesPage';
 import { BookingPage } from './pages/BookingPage';
+import { BookingSuccessPage } from './pages/BookingSuccessPage';
+import { BookingCancelledPage } from './pages/BookingCancelledPage';
+import { MembershipPage } from './pages/MembershipPage';
+import { AccountPage } from './pages/AccountPage';
 import { HealthIntakePage } from './pages/HealthIntakePage';
 import { ContactPage } from './pages/ContactPage';
 import { PrivacyPage } from './pages/PrivacyPage';
@@ -41,11 +45,13 @@ export const App: React.FC = () => {
 
     const loc = isLocale ? firstSegment : currentLocale;
     const page = isLocale ? (segments[1] || 'home') : segments[0];
+    // Sub-path under a page, e.g. /{locale}/booking/success → 'success'
+    const subPage = isLocale ? segments[2] : segments[1];
 
-    return { locale: loc, page };
+    return { locale: loc, page, subPage };
   };
 
-  const { locale: routeLocale, page: activePage } = parsedRoute();
+  const { locale: routeLocale, page: activePage, subPage: activeSubPage } = parsedRoute();
 
   // Sync locale state with route if needed
   useEffect(() => {
@@ -132,11 +138,39 @@ export const App: React.FC = () => {
         />
       )}
 
-      {activePage === 'booking' && (
+      {activePage === 'booking' && !activeSubPage && (
         <BookingPage
           currentLocale={currentLocale}
           preselectedTreatmentId={preselectedTreatmentId}
           preselectedDurationMinutes={preselectedDuration}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {activePage === 'booking' && activeSubPage === 'success' && (
+        <BookingSuccessPage
+          currentLocale={currentLocale}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {activePage === 'booking' && activeSubPage === 'cancelled' && (
+        <BookingCancelledPage
+          currentLocale={currentLocale}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {activePage === 'membership' && (
+        <MembershipPage
+          currentLocale={currentLocale}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {activePage === 'account' && (
+        <AccountPage
+          currentLocale={currentLocale}
           onNavigate={handleNavigate}
         />
       )}

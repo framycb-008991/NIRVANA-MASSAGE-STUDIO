@@ -143,8 +143,36 @@ export async function sendPractitionerNotification(booking, practitionerEmail) {
  * Client confirmation
  * ------------------------------------------------------------------------- */
 
+/** Payment-summary box shown in the client confirmation, by payment status. */
+function paymentBoxHtml(booking) {
+  const price = booking.price_pln;
+  const paid = booking.amount_paid_pln;
+  switch (booking.payment_status) {
+    case 'deposit_paid':
+      return `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3e342c;">
+        <strong>Deposit paid online:</strong> ${paid ?? booking.deposit_pln} PLN.
+        The remaining ${paid != null ? price - paid : price - booking.deposit_pln} PLN
+        is payable at your session.
+      </p>`;
+    case 'paid_full':
+      return `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3e342c;">
+        <strong>Paid in full online:</strong> ${paid ?? price} PLN. Nothing is due at your session.
+      </p>`;
+    case 'credit':
+      return `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3e342c;">
+        <strong>Membership:</strong> this session is covered by one of your membership
+        session credits. Nothing is due at your session.
+      </p>`;
+    default:
+      return `<p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3e342c;">
+        <strong>Deposit:</strong> a deposit of ${booking.deposit_pln ?? DEPOSIT_PLN} PLN secures your
+        appointment. The remaining balance is payable at the studio.
+      </p>`;
+  }
+}
+
 /**
- * Sends the booking confirmation to the client, including deposit info and
+ * Sends the booking confirmation to the client, including payment info and
  * the 24-hour cancellation policy.
  *
  * @param {object} booking the bookings table row (snake_case fields)
@@ -172,14 +200,11 @@ export async function sendClientConfirmation(booking) {
       ${detailRow('Price', `${booking.price_pln} PLN`)}
     </table>
     <div style="margin:24px 0 0;padding:16px;background-color:#f3ece1;border-radius:8px;">
-      <p style="margin:0 0 8px;font-size:13px;line-height:1.6;color:#3e342c;">
-        <strong>Deposit:</strong> a deposit of ${booking.deposit_pln ?? DEPOSIT_PLN} PLN secures your
-        appointment. The remaining balance is payable at the studio.
-      </p>
+      ${paymentBoxHtml(booking)}
       <p style="margin:0;font-size:13px;line-height:1.6;color:#3e342c;">
         <strong>Cancellation policy:</strong> you may cancel or reschedule free of charge up to
         24 hours before your appointment. Cancellations made less than 24 hours in advance
-        forfeit the deposit.
+        forfeit any amount already paid.
       </p>
     </div>
     <p style="margin:24px 0 0;font-size:14px;line-height:1.6;">
@@ -191,5 +216,136 @@ export async function sendClientConfirmation(booking) {
     to: booking.client_email,
     subject: `Your booking is confirmed — ${when}`,
     html: emailShell({ heading: 'Booking confirmation', bodyHtml }),
+  });
+}
+
+/* ---------------------------------------------------------------------------
+ * Membership / subscription emails
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Welcome email after a subscription's first payment succeeds.
+ *
+ * @param {object} args { email, fullName, tierName, monthlyPricePLN, creditsPerCycle, periodEnd }
+ */
+export async function sendSubscriptionWelcome({ email, fullName, tierName, monthlyPricePLN, creditsPerCycle, periodEnd }) {
+  if (!resend) {
+    warnUnconfigured();
+    return null;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Dear ${escapeHtml(fullName || 'member')},<br>
+      welcome to your <strong>${escapeHtml(tierName)}</strong> membership.
+      Your first payment has been received and your session credits are ready to use.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      ${detailRow('Membership', escapeHtml(tierName))}
+      ${detailRow('Monthly price', `${monthlyPricePLN} PLN`)}
+      ${detailRow('Session credits', `${creditsPerCycle} per month`)}
+      ${detailRow('Renews', escapeHtml(formatDateLong(String(periodEnd).slice(0, 10))))}
+    </table>
+    <p style="margin:24px 0 0;font-size:14px;line-height:1.6;">
+      Book your sessions as usual on the website — while your membership is active,
+      the price at checkout is 0 PLN and one credit is used per session.
+      Unused sessions carry over to the next month (maximum 1).
+      You can manage or cancel your membership anytime from your account page.
+    </p>`;
+
+  return resend.emails.send({
+    from: EMAIL_FROM,
+    to: email,
+    subject: `Welcome to ${tierName} — your membership is active`,
+    html: emailShell({ heading: 'Membership activated', bodyHtml }),
+  });
+}
+
+/**
+ * Renewal notice after a successful monthly auto-debit.
+ *
+ * @param {object} args { email, tierName, creditsGranted, creditBalance, periodEnd }
+ */
+export async function sendSubscriptionRenewal({ email, tierName, creditsGranted, creditBalance, periodEnd }) {
+  if (!resend) {
+    warnUnconfigured();
+    return null;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Your <strong>${escapeHtml(tierName)}</strong> membership has renewed for another month.
+    </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+      ${detailRow('New credits added', String(creditsGranted))}
+      ${detailRow('Your credit balance', String(creditBalance))}
+      ${detailRow('Next renewal', escapeHtml(formatDateLong(String(periodEnd).slice(0, 10))))}
+    </table>`;
+
+  return resend.emails.send({
+    from: EMAIL_FROM,
+    to: email,
+    subject: `${tierName} renewed — new session credits added`,
+    html: emailShell({ heading: 'Membership renewed', bodyHtml }),
+  });
+}
+
+/**
+ * Payment-failure notice: subscription moved to past_due, privileges suspended.
+ *
+ * @param {object} args { email, tierName }
+ */
+export async function sendSubscriptionPaymentFailed({ email, tierName }) {
+  if (!resend) {
+    warnUnconfigured();
+    return null;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      We couldn't collect the monthly payment for your
+      <strong>${escapeHtml(tierName)}</strong> membership. Your card issuer declined the charge.
+    </p>
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Credit-based booking is paused until the payment succeeds. Stripe will retry
+      automatically over the coming days — updating your card in your account page
+      resolves it immediately.
+    </p>`;
+
+  return resend.emails.send({
+    from: EMAIL_FROM,
+    to: email,
+    subject: `Action needed: ${tierName} payment didn't go through`,
+    html: emailShell({ heading: 'Payment problem', bodyHtml }),
+  });
+}
+
+/**
+ * Cancellation confirmation (access stays until the paid period ends).
+ *
+ * @param {object} args { email, tierName, periodEnd }
+ */
+export async function sendSubscriptionCancelled({ email, tierName, periodEnd }) {
+  if (!resend) {
+    warnUnconfigured();
+    return null;
+  }
+
+  const bodyHtml = `
+    <p style="margin:0 0 20px;font-size:14px;line-height:1.6;">
+      Your <strong>${escapeHtml(tierName)}</strong> membership has been cancelled.
+      No further payments will be taken.
+    </p>
+    <p style="margin:0;font-size:14px;line-height:1.6;">
+      Your remaining session credits stay usable until
+      <strong>${escapeHtml(formatDateLong(String(periodEnd).slice(0, 10)))}</strong>,
+      the end of your current paid period.
+    </p>`;
+
+  return resend.emails.send({
+    from: EMAIL_FROM,
+    to: email,
+    subject: `${tierName} membership cancelled`,
+    html: emailShell({ heading: 'Membership cancelled', bodyHtml }),
   });
 }

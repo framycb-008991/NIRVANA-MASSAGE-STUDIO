@@ -1,5 +1,5 @@
 /**
- * GET /api/availability?date=YYYY-MM-DD&duration=60|90
+ * GET /api/availability?date=YYYY-MM-DD&duration=30|45|60|90
  *
  * Returns the bookable time slots for one day:
  *   200 { date: "YYYY-MM-DD", slots: [{ time: "HH:MM", available: boolean }] }
@@ -23,7 +23,7 @@ import {
   nowInWarsaw,
 } from './_lib/availabilityCore.js';
 
-const ALLOWED_DURATIONS = new Set([60, 90]);
+const ALLOWED_DURATIONS = new Set([30, 45, 60, 90]);
 
 export default async function handler(req, res) {
   // Availability is always computed live — never let any layer cache it.
@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 
     const durationMinutes = Number(duration);
     if (!ALLOWED_DURATIONS.has(durationMinutes)) {
-      return res.status(400).json({ error: 'Invalid or missing "duration" (expected 60 or 90).' });
+      return res.status(400).json({ error: 'Invalid or missing "duration" (expected 30, 45, 60 or 90).' });
     }
 
     // Past dates are never bookable (comparison in studio local time).

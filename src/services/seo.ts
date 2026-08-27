@@ -25,6 +25,16 @@ export function updatePageSEO(page: string, locale: Locale): void {
       pl: 'Rezerwacja Terminu | Nirvana Studio Masażu Wrocław',
       uk: 'Бронювання Сесії | Nirvana Студія Масажу Вроцлав'
     },
+    membership: {
+      en: 'Memberships & Session-Credit Passes | Nirvana Massage Studio Wrocław',
+      pl: 'Członkostwa & Karnety Masażu | Nirvana Studio Masażu Wrocław',
+      uk: 'Членства & Абонементи на Масаж | Nirvana Студія Масажу Вроцлав'
+    },
+    account: {
+      en: 'My Account & Membership | Nirvana Massage Studio',
+      pl: 'Moje Konto & Członkostwo | Nirvana Studio Masażu',
+      uk: 'Мій Кабінет & Членство | Nirvana Студія Масажу'
+    },
     intake: {
       en: 'Health & Consultation Intake | Nirvana Massage Studio',
       pl: 'Karta Zdrowia & Konsultacja | Nirvana Studio Masażu',
@@ -67,6 +77,16 @@ export function updatePageSEO(page: string, locale: Locale): void {
       en: 'Book your in-studio session in Wrocław (ul. Przedmiejska 2/02) or request a private travel massage session across Poland and Europe.',
       pl: 'Zarezerwuj sesję w studio we Wrocławiu (ul. Przedmiejska 2/02) lub zamów prywatną sesję wyjazdową.',
       uk: 'Забронюйте сеанс у студії у Вроцлаві (вул. Przedmiejska 2/02) або замовте приватну виїзну сесію.'
+    },
+    membership: {
+      en: 'Monthly massage memberships with session credits at Nirvana Massage Studio in Wrocław. One unused session carries over; cancel anytime.',
+      pl: 'Miesięczne członkostwa z karnetami sesji w Nirvana Studio Masażu we Wrocławiu. Niewykorzystana sesja przechodzi na kolejny miesiąc; rezygnacja w każdej chwili.',
+      uk: 'Щомісячні членства з кредитами сеансів у студії Nirvana у Вроцлаві. Невикористаний сеанс переноситься на наступний місяць; скасування будь-коли.'
+    },
+    account: {
+      en: 'Manage your Nirvana Massage Studio membership, session credits and booking history.',
+      pl: 'Zarządzaj członkostwem, karnetami sesji i historią rezerwacji w Nirvana Studio Masażu.',
+      uk: 'Керуйте членством, кредитами сеансів та історією бронювань у Nirvana Студія Масажу.'
     },
     intake: {
       en: 'Pre-session health intake for Nirvana Massage Studio. Safe, encrypted, GDPR-compliant consultation.',

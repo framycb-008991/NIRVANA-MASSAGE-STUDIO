@@ -269,6 +269,18 @@ export const HomePage: React.FC<HomePageProps> = ({
               <span>{t('home.view_all_services')}</span>
               <ArrowRight size={14} />
             </button>
+
+            <div style={{ marginTop: '1.6rem', fontSize: '0.88rem', color: 'var(--ink-light)' }}>
+              {t('membership.home_teaser')}{' '}
+              <button
+                type="button"
+                className="edit-back-link"
+                style={{ fontSize: '0.88rem' }}
+                onClick={() => onNavigate(`/${currentLocale}/membership`)}
+              >
+                {t('membership.home_teaser_link')}
+              </button>
+            </div>
           </div>
         </div>
       </section>

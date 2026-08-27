@@ -4,7 +4,7 @@ import { getTranslation, formatCurrency } from '../services/i18n';
 import { getAllTreatments, treatmentImageSrc } from '../services/treatments';
 import { usePhotos } from '../hooks/usePhotos';
 import { HalftoneCircle } from '../components/HalftoneCircle';
-import { Clock, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Clock, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface ServicesPageProps {
   currentLocale: Locale;
@@ -210,6 +210,20 @@ export const ServicesPage: React.FC<ServicesPageProps> = ({
               </div>
             </article>
           ))}
+        </div>
+
+        {/* Membership teaser */}
+        <div style={{ textAlign: 'center', marginTop: '3.5rem' }}>
+          <p style={{ fontSize: '0.95rem', color: 'var(--ink-light)', marginBottom: '0.9rem' }}>
+            {t('membership.services_teaser')}
+          </p>
+          <button
+            className="btn btn-outline"
+            onClick={() => onNavigate(`/${currentLocale}/membership`)}
+          >
+            <span>{t('membership.services_teaser_link')}</span>
+            <ArrowRight size={14} />
+          </button>
         </div>
       </div>
     </main>

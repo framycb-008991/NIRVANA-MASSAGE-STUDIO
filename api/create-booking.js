@@ -2,12 +2,14 @@
  * POST /api/create-booking
  *
  * Creates a confirmed booking after re-verifying the requested slot.
+ * Prices are ALWAYS re-derived server-side (api/_lib/pricing.js); any
+ * client-sent pricePLN/depositPLN values are ignored.
  *
  * Request body (JSON):
  *   {
  *     firstName: string, surname: string, email: string, phone: string,
- *     treatmentId: string, treatmentName: string,
- *     durationMinutes: 60|90, pricePLN: number, depositPLN?: number,
+ *     treatmentId: string, treatmentName?: string,
+ *     durationMinutes: 30|45|60|90,
  *     date: "YYYY-MM-DD", timeSlot: "HH:MM",
  *     bookingType: "in_studio"|"private",
  *     location?: string|null,   // required for "private"
@@ -35,21 +37,20 @@ import {
   isValidDateString,
   isValidTimeString,
   nowInWarsaw,
-  DEPOSIT_PLN,
 } from './_lib/availabilityCore.js';
-import { createCalendarEvent } from './_lib/googleCalendar.js';
-import { sendPractitionerNotification, sendClientConfirmation } from './_lib/email.js';
+import { getPriceCatalog, resolvePrice, depositFor } from './_lib/pricing.js';
+import { finalizeConfirmedBooking } from './_lib/confirmBooking.js';
 
-const ALLOWED_DURATIONS = new Set([60, 90]);
+const ALLOWED_DURATIONS = new Set([30, 45, 60, 90]);
 const ALLOWED_BOOKING_TYPES = new Set(['in_studio', 'private']);
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const DEFAULT_PRACTITIONER_EMAIL = 'heorhiievaalina@gmail.com';
 
 /**
  * Validates the request body. Returns either { errors: [...] } describing all
  * problems found, or { value: {...} } with normalized, trimmed fields.
+ * Exported so api/create-checkout.js validates identically.
  */
-function validateBody(body) {
+export function validateBody(body) {
   const errors = [];
   const b = body && typeof body === 'object' ? body : {};
 
@@ -60,7 +61,7 @@ function validateBody(body) {
   const email = str(b.email);
   const phone = str(b.phone);
   const treatmentId = str(b.treatmentId);
-  const treatmentName = str(b.treatmentName);
+  const treatmentName = str(b.treatmentName); // optional display name; catalog name is the fallback
   const date = str(b.date);
   const timeSlot = str(b.timeSlot);
   const bookingType = str(b.bookingType);
@@ -69,18 +70,13 @@ function validateBody(body) {
   const locale = str(b.locale) || 'en';
 
   const durationMinutes = Number(b.durationMinutes);
-  const pricePLN = Number(b.pricePLN);
-  const depositPLN = b.depositPLN == null ? DEPOSIT_PLN : Number(b.depositPLN);
 
   if (!firstName) errors.push('firstName is required.');
   if (!surname) errors.push('surname is required.');
   if (!EMAIL_PATTERN.test(email)) errors.push('email is missing or invalid.');
   if (!phone) errors.push('phone is required.');
   if (!treatmentId) errors.push('treatmentId is required.');
-  if (!treatmentName) errors.push('treatmentName is required.');
-  if (!ALLOWED_DURATIONS.has(durationMinutes)) errors.push('durationMinutes must be 60 or 90.');
-  if (!Number.isFinite(pricePLN) || pricePLN < 0) errors.push('pricePLN must be a non-negative number.');
-  if (!Number.isFinite(depositPLN) || depositPLN < 0) errors.push('depositPLN must be a non-negative number.');
+  if (!ALLOWED_DURATIONS.has(durationMinutes)) errors.push('durationMinutes must be 30, 45, 60 or 90.');
   if (!isValidDateString(date)) {
     errors.push('date must be a valid YYYY-MM-DD date.');
   } else if (date < nowInWarsaw().date) {
@@ -104,8 +100,6 @@ function validateBody(body) {
       treatmentId,
       treatmentName,
       durationMinutes,
-      pricePLN,
-      depositPLN,
       date,
       timeSlot,
       bookingType,
@@ -114,25 +108,6 @@ function validateBody(body) {
       locale,
     },
   };
-}
-
-/**
- * Resolves the practitioner notification email: settings table first, then
- * the PRACTITIONER_EMAIL env var, then the hard-coded studio default.
- */
-async function resolvePractitionerEmail(supabase) {
-  try {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'practitioner_email')
-      .maybeSingle();
-    if (!error && data && EMAIL_PATTERN.test(data.value)) return data.value;
-    if (error) console.warn('[create-booking] settings lookup failed:', error.message);
-  } catch (err) {
-    console.warn('[create-booking] settings lookup threw:', err);
-  }
-  return process.env.PRACTITIONER_EMAIL || DEFAULT_PRACTITIONER_EMAIL;
 }
 
 export default async function handler(req, res) {
@@ -167,17 +142,27 @@ export default async function handler(req, res) {
         .json({ error: 'The selected time slot is no longer available. Please choose another time.' });
     }
 
-    // --- 3. Insert the booking ----------------------------------------------
+    // --- 3. Resolve the canonical price (client prices are ignored) ---------
+    const catalog = await getPriceCatalog(supabase);
+    const resolved = resolvePrice(catalog, input.treatmentId, input.durationMinutes);
+    if (!resolved) {
+      return res
+        .status(400)
+        .json({ error: 'Unknown treatment or duration. Please pick a service from the list.' });
+    }
+    const treatmentName = input.treatmentName || resolved.catalogName || input.treatmentId;
+
+    // --- 4. Insert the booking ----------------------------------------------
     const bookingRow = {
       client_first_name: input.firstName,
       client_surname: input.surname,
       client_email: input.email,
       client_phone: input.phone,
       treatment_id: input.treatmentId,
-      treatment_name: input.treatmentName,
+      treatment_name: treatmentName,
       duration_minutes: input.durationMinutes,
-      price_pln: input.pricePLN,
-      deposit_pln: input.depositPLN,
+      price_pln: resolved.pricePLN,
+      deposit_pln: depositFor(resolved.pricePLN),
       booking_date: input.date,
       start_time: input.timeSlot,
       booking_type: input.bookingType,
@@ -198,48 +183,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to save the booking. Please try again.' });
     }
 
-    // --- 4. Google Calendar event (best effort) -----------------------------
-    try {
-      const event = await createCalendarEvent({
-        firstName: input.firstName,
-        surname: input.surname,
-        email: input.email,
-        phone: input.phone,
-        treatmentName: input.treatmentName,
-        durationMinutes: input.durationMinutes,
-        date: input.date,
-        timeSlot: input.timeSlot,
-        bookingType: input.bookingType,
-        location: input.location,
-        notes: input.notes,
-      });
-      if (event && event.id) {
-        const { error: updateError } = await supabase
-          .from('bookings')
-          .update({ google_event_id: event.id })
-          .eq('id', inserted.id);
-        if (updateError) {
-          console.error('[create-booking] storing google_event_id failed:', updateError);
-        }
-      }
-    } catch (calendarError) {
-      // Calendar sync failing must not fail the booking — the DB row is truth.
-      console.error('[create-booking] calendar event creation failed:', calendarError);
-    }
-
-    // --- 5. Emails (best effort, independently) -----------------------------
-    try {
-      const practitionerEmail = await resolvePractitionerEmail(supabase);
-      await sendPractitionerNotification(inserted, practitionerEmail);
-    } catch (emailError) {
-      console.error('[create-booking] practitioner notification failed:', emailError);
-    }
-
-    try {
-      await sendClientConfirmation(inserted);
-    } catch (emailError) {
-      console.error('[create-booking] client confirmation failed:', emailError);
-    }
+    // --- 5. Calendar + emails (best effort, shared helper) -------------------
+    await finalizeConfirmedBooking(supabase, inserted);
 
     return res.status(201).json({ bookingId: inserted.id, status: 'confirmed' });
   } catch (error) {

@@ -1,39 +1,46 @@
 # Nirvana Massage Studio — Payments & Pricing Spec
 
-> Determines whether payment happens online at booking time, and what that requires. This is one of the biggest scope decisions left open — it affects the booking flow, the tech stack, and legal/compliance needs.
+> **STATUS: IMPLEMENTED (2026-08-28).** The decisions below were made and built.
+> This document now records what was decided and where it lives in the code.
+> The subscription/membership side is specified in `SUBSCRIPTION_SPEC.md`.
 
----
+## Decisions made
 
-## 1. Decision needed: payment model
+- **Payment model: B — deposit at booking**, with a client choice at checkout:
+  pay a **30% deposit** online (rest at the session) or the **full price** online.
+  (Originally spec'd as deposit-only; the full-payment option was added per owner decision.)
+- **Processor: Stripe** (hosted Checkout; card + BLIK + Apple/Google Pay), **PLN only**.
+  EUR prices remain display-only on the site.
+- **Cancellation policy:** free cancellation/rescheduling with full refund of any
+  amount paid up to **24 hours before** the session; later cancellations forfeit it.
+  Refunds are processed manually in the Stripe dashboard (no self-service refund API).
+- **Subscriptions:** 6 monthly membership tiers with session credits, auto-debit via
+  Stripe Billing — see `SUBSCRIPTION_SPEC.md` and `api/_lib/tiers.js`.
 
-**A. Pay at session (no online payment)**
-- Simplest to build — the current booking flow spec (`WEBSITE_SPECS.md` §4) already supports this as-is.
-- Risk: higher no-show rate with no financial commitment at booking.
+## Where it lives in the code
 
-**B. Deposit required to confirm booking**
-- A partial payment (fixed amount or percentage) taken online to hold the slot; remainder paid at session.
-- Reduces no-shows; requires a payment processor integration.
+| Concern | Location |
+|---|---|
+| Canonical prices (server authority) | `api/_lib/pricing.js` (mirror of `src/services/storage.ts` TREATMENTS + `custom_treatments` settings) |
+| Deposit rule (30%, rounded up) | `depositFor()` in `api/_lib/pricing.js` |
+| Booking checkout (deposit/full) | `api/create-checkout.js` |
+| Payment confirmation | `api/stripe-webhook.js` → confirms booking, emails, calendar |
+| Credit redemption (0 PLN member bookings) | `api/create-checkout.js` (`paymentChoice: 'credit'`) |
+| Membership purchase/cancel | `api/subscribe.js`, `api/cancel-subscription.js` |
+| Tier definitions (admin-editable) | `settings.subscription_tiers` (seeded in `supabase/migrations/001_payments.sql`) |
+| Payment UI (Step 3) | `src/pages/BookingPage.tsx` |
+| Membership / account pages | `src/pages/MembershipPage.tsx`, `src/pages/AccountPage.tsx` |
+| Admin memberships tab + tier editor | `src/pages/AdminPage.tsx` |
 
-**C. Full payment at booking**
-- Entire treatment cost paid online upfront.
-- Cleanest for the practitioner's cash flow, but the highest-friction option for the client and the most build complexity.
+## Compliance notes (unchanged from original spec)
 
-**Recommendation:** given the brand's calm, low-pressure positioning, a **deposit model (B)** balances protecting the practitioner's time against not making the booking experience feel transactional — but this is ultimately a business decision, not a design one.
+- Card data never touches the site (Stripe-hosted Checkout) — no PCI scope.
+- Polish tax/receipt obligations should be confirmed with the studio's accountant;
+  Stripe provides invoices/receipts but any faktura VAT process is a business decision.
 
-## 2. If online payment is included (B or C)
+## Still open (deferred)
 
-- **Payment processor:** needs a provider that supports the currencies/regions relevant here (Poland-based, but private/travel clients may book from other countries — confirm multi-currency needs).
-- **Refund/cancellation policy:** must be defined and clearly stated at the point of payment, not buried in a separate policy page. Ties into the cancellation/reschedule questions already open in `WEBSITE_SPECS.md` §7.
-- **Receipts/invoicing:** Polish tax/accounting requirements may apply — confirm with whoever handles the studio's accounting before finalizing.
-- **PCI compliance:** using a reputable third-party payment processor (rather than handling card data directly) avoids the site needing to be PCI-compliant itself — this should be a hard requirement for whichever processor is chosen.
-
-## 3. Design implications
-
-- Wherever payment happens, it should sit as a clearly separated step after the existing Step 2 (contact info), not blended into it — keeps the calm, unhurried booking flow from suddenly feeling like a checkout page.
-- Price should be shown clearly earlier in the flow (Services page, and again in Step 1 once a treatment/duration is selected) so payment isn't a surprise at the end.
-
-## 4. Open questions
-
-- Which payment model (A/B/C)?
-- If B or C: preferred payment processor, if the practitioner has one in mind, or should this be researched as part of the technical build?
-- Cancellation policy terms (how close to the appointment can a client cancel and still get a refund/deposit back)?
+- Apple/Google Wallet member passes + QR check-in scanner (`SUBSCRIPTION_SPEC.md` Phase 3)
+  — requires Apple Developer + Google Wallet issuer accounts and scanner hardware.
+- Self-service client cancellation/rescheduling of bookings (`WEBSITE_SPECS.md` §7).
+- Multi-currency charging (EUR).
